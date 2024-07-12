@@ -1,0 +1,13 @@
+*.obj
+*.o
+*.exe
+*.ilk
+*.pdb
+*.txt
+*.rdi
+!LICENSE.TXT
+!TODO.txt
+*.raddbg
+win32_d3d11_app.lib
+win32_d3d11_app.exp
+build/OptickCore.dll
