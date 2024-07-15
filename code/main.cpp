@@ -35,6 +35,19 @@
 #include "./render/render_inc.c"
 #include "./font/font_inc.c"
 
+typedef struct Graph_Data Graph_Data;
+struct Graph_Data
+{
+    u32 data_size;
+    f32 *xs;
+    f32 *ys;
+};
+
+internal f32 lerpf(f32 a, f32 b, f32 t)
+{
+    return(a*(1.0f - t) + b*t);
+}
+
 int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, int cmd_show)
 {
     UNUSED(instance);
@@ -60,6 +73,18 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
     r_window_equip(window);
     
     Font font = font_init(arena, str8("./Inconsolata-Regular.ttf"), 16, 96);
+
+    const f32 controls_size = 30.0f;
+    const f32 padding = 30.0f;
+    const f32 line_spacing = 80.0f;
+    const f32 line_width = 2.0f;
+    
+    const u32 data_size = 5;
+    f32 xs[data_size] = { 0.0f, 1.0f, 2.5f, 5.0f, 10.0f };
+    f32 ys[data_size] = { 0.0f, 1.0f, 4.0f, 5.0f, 10.0f };
+
+    // f32 max_x = 5.0f;
+    // f32 max_y = 5.0f;
     
     b32 should_quit = 0;
     f64 frame_prev = os_ticks_now();
@@ -87,9 +112,70 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
             }
         }
         
+        HMM_Vec2 window_size = {0};
+        gfx_window_get_rect(window, &window_size.X, &window_size.Y);
+        
         R_List list = {0};
         R_Ctx ctx = r_make_context(frame_arena, &list);
         r_frame_begin(window);
+
+        // @Note: Rendering graph
+        {
+            HMM_Vec2 origin = { padding, window_size.Y - padding };
+            
+            RectF32 axis_x = {
+                0.0f, origin.Y - 2.0f, 
+                window_size.X, origin.Y + 2.0f
+            };
+            
+            RectF32 axis_y = {
+                origin.X - 2.0f, 0.0f,
+                origin.X + 2.0f, window_size.Y
+            };
+
+            // @Note: Vertical lines
+            HMM_Vec2 line_start = { origin.X + line_spacing, 0.0f };
+            while (line_start.X <= window_size.X) {
+                RectF32 grid_line_y = {
+                    line_start.X - line_width*.5f, 0.0f,
+                    line_start.X + line_width*.5f, window_size.Y
+                };
+                r_rect(&ctx, grid_line_y, 0x262626FF, 0.0f);
+                line_start.X += line_spacing;
+            }
+
+            // @Note: Horizontal lines
+            line_start = { 0.0f, origin.Y - line_spacing };
+            while (line_start.Y >= 0.0f) {
+                RectF32 grid_line_y = {
+                    0.0f, line_start.Y - line_width*.5f,
+                    window_size.X, line_start.Y + line_width*.5f
+                };
+                r_rect(&ctx, grid_line_y, 0x262626FF, 0.0f);
+                line_start.Y -= line_spacing;
+            }
+            
+            r_rect(&ctx, axis_y, 0x4A4A4AFF, 0.0f);
+            r_rect(&ctx, axis_x, 0x4A4A4AFF, 0.0f);
+
+            const HMM_Vec2 step = { 1.0f, 1.0f };
+            for (u32 i = 0; i < data_size; ++i) {
+                HMM_Vec2 pos = {
+                    origin.X + ((xs[i]/step.X)*line_spacing),
+                    origin.Y - ((ys[i]/step.Y)*line_spacing)
+                };
+                r_circ(&ctx, pos, 6.0f, 0xFF0000FF);
+            }
+        }
+
+        // @Note: Rendering and handling ui
+        {
+            RectF32 controls = {
+                0.0f, 0.0f,
+                window_size.X, controls_size
+            };
+            r_rect(&ctx, controls, 0x333333FF, 0.0f);
+        }
 
         r_flush_batches(window, &list);
         r_frame_end(window);

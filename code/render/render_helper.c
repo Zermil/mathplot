@@ -62,7 +62,7 @@ internal void r_push_quad(Arena *arena, R_Quad_Batch *batch, R_Quad *quad)
     batch->total_quad_count += 1;
 }
 
-internal void r_rect(R_Ctx *ctx, RectF32 pos, f32 radius, u32 col)
+internal void r_rect_ex(R_Ctx *ctx, RectF32 pos, u32 col, f32 radius, f32 theta)
 {
     r_prep_batch(ctx->arena, ctx->list, 0);
     
@@ -70,38 +70,46 @@ internal void r_rect(R_Ctx *ctx, RectF32 pos, f32 radius, u32 col)
     quad.pos = pos;
     quad.col = col;
     quad.radius = radius;
-    quad.theta = 0.0f;
+    quad.theta = theta;
     quad.uv = { 0.0f, 0.0f, 1.0f, 1.0f };
+    
+    r_push_quad(ctx->arena, ctx->list->last, &quad);
+}
+
+internal void r_rect(R_Ctx *ctx, RectF32 pos, u32 col, f32 radius)
+{
+    r_rect_ex(ctx, pos, col, radius, 0.0f);
+}
+
+internal void r_circ(R_Ctx *ctx, HMM_Vec2 pos, f32 radius, u32 col)
+{
+    f32 nx = pos.X - radius;
+    f32 ny = pos.Y - radius;
+    RectF32 offset_pos = {
+        nx, ny,
+        nx + 2.0f*radius, ny + 2.0f*radius
+    };   
+    r_rect_ex(ctx, offset_pos, col, radius, 0.0f);
+}
+
+internal void r_rect_tex_ex(R_Ctx *ctx, RectF32 pos, u32 tint, f32 radius, f32 theta, RectF32 uv, R_Texture2D *texture)
+{
+    r_prep_batch(ctx->arena, ctx->list, texture);
+    
+    R_Quad quad = {0};
+    quad.pos = pos;
+    quad.col = tint;
+    quad.radius = radius;
+    quad.theta = theta;
+    quad.uv = uv;
     
     r_push_quad(ctx->arena, ctx->list->last, &quad);
 }
 
 internal void r_rect_tex(R_Ctx *ctx, RectF32 pos, f32 radius, R_Texture2D *texture)
 {
-    r_prep_batch(ctx->arena, ctx->list, texture);
-    
-    R_Quad quad = {0};
-    quad.pos = pos;
-    quad.col = 0xFFFFFFFF;
-    quad.radius = radius;
-    quad.theta = 0.0f;
-    quad.uv = { 0.0f, 0.0f, 1.0f, 1.0f };
-    
-    r_push_quad(ctx->arena, ctx->list->last, &quad);
-}
-
-internal void r_rect_tex_ex(R_Ctx *ctx, RectF32 pos, f32 radius, RectF32 uv, R_Texture2D *texture)
-{
-    r_prep_batch(ctx->arena, ctx->list, texture);
-    
-    R_Quad quad = {0};
-    quad.pos = pos;
-    quad.col = 0xFFFFFFFF;
-    quad.radius = radius;
-    quad.theta = 0.0f;
-    quad.uv = uv;
-    
-    r_push_quad(ctx->arena, ctx->list->last, &quad);
+    RectF32 uv = { 0.0f, 0.0f, 1.0f, 1.0f };
+    r_rect_tex_ex(ctx, pos, 0xFFFFFFFF, radius, 0.0f, uv, texture);
 }
 
 internal void r_flush_batches(GFX_Window *window, R_List *list)

@@ -21,6 +21,7 @@ typedef struct {
     Font_Glyph_Info glyphs[FONT_GLYPH_COUNT];
 } Font;
 
+internal b32 font_is_init(void);
 internal Font font_init(Arena *arena, String8 font_name, u32 font_size, u32 dpi);
 internal f32 font_text_width_ex(Font *font, String8 text, f32 scale);
 internal f32 font_text_width(Font *font, String8 text);
