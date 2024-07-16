@@ -72,64 +72,43 @@ internal f32 ilerpf(f32 a, f32 b, f32 v)
     return((v - a)/(b - a));
 }
 
-internal void move_toward(f32 *value, f32 target, f32 dt, f32 rate_up, f32 rate_down)
+internal void r_grid(R_Ctx *ctx, Font *font, HMM_Vec2 origin, HMM_Vec2 window_size, f32 line_width, f32 line_spacing)
 {
-    f32 a = *value;
-
-    if (a > target) {
-        if (rate_down == -1.0f) rate_down = rate_up;
-        a -= dt*rate_down;
-        if (a < target) a = target;
-        *value = a;
-    } else if (a < target) {
-        a += dt*rate_up;
-        if (a > target) a = target;
-        *value = a;
-    }
-}
-
-// @ToDo: No use starting from 'origin.X; when camera offset is very high, better
-// to figure out where to start drawing the grid and go from there.
-internal void r_grid(R_Ctx *ctx, HMM_Vec2 origin, HMM_Vec2 window_size, f32 line_width, f32 line_spacing)
-{
-    // @Note: Vertical lines
-    HMM_Vec2 grid_forward = { origin.X + line_spacing, 0.0f };
-    HMM_Vec2 grid_back = { origin.X - line_spacing, 0.0f };
-    while (grid_forward.X <= window_size.X || grid_back.X >= 0.0f) {
-        RectF32 forward_y = {
-            grid_forward.X - line_width*.5f, 0.0f,
-            grid_forward.X + line_width*.5f, window_size.Y
+    const f32 a = (f32) ((s32) (origin.X/line_spacing));
+    const f32 b = (f32) ((s32) (origin.Y/line_spacing));
+    const f32 padding = 10.0f;
+    HMM_Vec2 start = {0};
+    
+    start = { origin.X - a*line_spacing, 0.0f };
+    while (start.X <= window_size.X) {    
+        RectF32 rect = {
+            start.X - line_width*.5f, 0.0f,
+            start.X + line_width*.5f, window_size.Y
         };
-        if (0.0f <= grid_forward.X && grid_forward.X <= window_size.X) r_rect(ctx, forward_y, 0x262626FF, 0.0f);
+    
+        r_rect(ctx, rect, 0x262626FF, 0.0f);
+
+        String8 str = str8("xn");
+        HMM_Vec2 text_pos = { start.X + padding, origin.Y + font->font_size + padding };
         
-        RectF32 back_y = {
-            grid_back.X - line_width*.5f, 0.0f,
-            grid_back.X + line_width*.5f, window_size.Y
-        };
-        if (0.0f <= grid_back.X && grid_back.X <= window_size.X) r_rect(ctx, back_y, 0x262626FF, 0.0f);
-        
-        grid_forward.X += line_spacing;
-        grid_back.X -= line_spacing;
+        font_r_text(ctx, font, text_pos, str);
+        start.X += line_spacing;
     }
 
-    // @Note: Horizontal lines
-    grid_forward = { 0.0f, origin.Y + line_spacing };
-    grid_back = { 0.0f, origin.Y - line_spacing };
-    while (grid_forward.Y <= window_size.Y || grid_back.Y >= 0.0f) {
-        RectF32 forward_x = {
-            0.0f, grid_forward.Y - line_width*.5f,
-            window_size.X, grid_forward.Y + line_width*.5f
+    start = { 0.0f, origin.Y - b*line_spacing };
+    while (start.Y <= window_size.Y) {    
+        RectF32 rect = {
+            0.0f, start.Y - line_width*.5f,
+            window_size.X, start.Y + line_width*.5f
         };
-        if (0.0f <= grid_forward.Y && grid_forward.Y <= window_size.Y) r_rect(ctx, forward_x, 0x262626FF, 0.0f);
-        
-        RectF32 back_x = {
-            0.0f, grid_back.Y - line_width*.5f,
-            window_size.X, grid_back.Y + line_width*.5f
-        };
-        if (0.0f <= grid_back.Y && grid_back.Y <= window_size.Y) r_rect(ctx, back_x, 0x262626FF, 0.0f);
-        
-        grid_forward.Y += line_spacing;
-        grid_back.Y -= line_spacing;
+
+        String8 str = str8("yn");
+        f32 w = font_text_width(font, str);
+        HMM_Vec2 text_pos = { origin.X - w - padding, start.Y + font->font_size + padding };
+            
+        r_rect(ctx, rect, 0x262626FF, 0.0f);
+        font_r_text(ctx, font, text_pos, str);
+        start.Y += line_spacing;
     }
 }
 
@@ -270,18 +249,18 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
 
             f32 t = ilerpf(scale_min, scale_max, camera.scale);
             f32 grid_split = (f32) ((s32) lerpf(3.0f, 1.0f, t));
-            r_grid(&ctx, origin, window_size, line_width, line_spacing*grid_split);
+            r_grid(&ctx, &font, origin, window_size, line_width, line_spacing*grid_split);
             
             r_rect(&ctx, axis_y, 0x4A4A4AFF, 0.0f);
             r_rect(&ctx, axis_x, 0x4A4A4AFF, 0.0f);
 
             const HMM_Vec2 step = { 1.0f, 1.0f };
             for (u32 i = 0; i < data_size; ++i) {
-                HMM_Vec2 pos = {
+                HMM_Vec2 point_pos = {
                     origin.X + ((xs[i]/step.X)*line_spacing),
                     origin.Y - ((ys[i]/step.Y)*line_spacing)
                 };
-                r_circ(&ctx, pos, 6.0f, 0xFF0000FF);
+                r_circ(&ctx, point_pos, 6.0f, 0xFF0000FF);
             }
         }
 
