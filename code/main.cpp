@@ -67,6 +67,27 @@ internal f32 lerpf(f32 a, f32 b, f32 t)
     return(a*(1.0f - t) + b*t);
 }
 
+internal f32 ilerpf(f32 a, f32 b, f32 v)
+{
+    return((v - a)/(b - a));
+}
+
+internal void move_toward(f32 *value, f32 target, f32 dt, f32 rate_up, f32 rate_down)
+{
+    f32 a = *value;
+
+    if (a > target) {
+        if (rate_down == -1.0f) rate_down = rate_up;
+        a -= dt*rate_down;
+        if (a < target) a = target;
+        *value = a;
+    } else if (a < target) {
+        a += dt*rate_up;
+        if (a > target) a = target;
+        *value = a;
+    }
+}
+
 // @ToDo: No use starting from 'origin.X; when camera offset is very high, better
 // to figure out where to start drawing the grid and go from there.
 internal void r_grid(R_Ctx *ctx, HMM_Vec2 origin, HMM_Vec2 window_size, f32 line_width, f32 line_spacing)
@@ -81,7 +102,6 @@ internal void r_grid(R_Ctx *ctx, HMM_Vec2 origin, HMM_Vec2 window_size, f32 line
         };
         if (0.0f <= grid_forward.X && grid_forward.X <= window_size.X) r_rect(ctx, forward_y, 0x262626FF, 0.0f);
         
-
         RectF32 back_y = {
             grid_back.X - line_width*.5f, 0.0f,
             grid_back.X + line_width*.5f, window_size.Y
@@ -143,16 +163,18 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
     b32 track_mouse = 0;
     HMM_Vec2 mouse = {0};
     camera.scale = 1.0f;
-
+    
     const f32 controls_size = 30.0f;
     const f32 padding = 30.0f;
-    const f32 line_spacing = 80.0f;
-    const f32 line_width = 2.0f;
     
     const u32 data_size = 5;
     f32 xs[data_size] = { 0.0f, 1.0f, 2.5f, 5.0f, 10.0f };
     f32 ys[data_size] = { 0.0f, 1.0f, 4.0f, 5.0f, 10.0f };
 
+    const f32 scale_step = 0.1f;
+    const f32 scale_max = 3.0f;
+    const f32 scale_min = 0.4f;
+    
     // f32 max_x = 5.0f;
     // f32 max_y = 5.0f;
     
@@ -169,7 +191,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
 #endif
         
         f64 frame_start = os_ticks_now();
-        // f64 delta = (frame_start - frame_prev)/1000.0f;
+        // f64 dt = (frame_start - frame_prev)/1000.0f;
         frame_prev = frame_start;
         
         GFX_Event_List event_list = gfx_process_input(frame_arena);
@@ -199,12 +221,28 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
                     if (track_mouse) {
                         camera.offset.X += (event->mouse.X - mouse.X)/camera.scale;
                         camera.offset.Y += (event->mouse.Y - mouse.Y)/camera.scale;
-                        mouse = event->mouse;
                     }
+                    mouse = event->mouse;
                 } break;
+
+                case GFX_EVENT_MOUSEWHEEL: {
+                    HMM_Vec2 before = {0};
+                    HMM_Vec2 after = {0};
+                    camera_to_screen(&camera, mouse.X, mouse.Y, &before.X, &before.Y);
+                    {
+                        if (event->mouse_wheel > 0.0f) {
+                            camera.scale = MIN(camera.scale + scale_step, scale_max);
+                        } else {
+                            camera.scale = MAX(camera.scale - scale_step, scale_min);
+                        }
+                    }
+                    camera_to_screen(&camera, mouse.X, mouse.Y, &after.X, &after.Y);
+                    camera.offset.X += after.X - before.X;
+                    camera.offset.Y += after.Y - before.Y;
+                } break; 
             }
         }
-        
+
         HMM_Vec2 window_size = {0};
         gfx_window_get_rect(window, &window_size.X, &window_size.Y);
         
@@ -212,6 +250,9 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
         R_Ctx ctx = r_make_context(frame_arena, &list);
         r_frame_begin(window);
 
+        const f32 line_spacing = 80.0f*camera.scale;
+        const f32 line_width = 2.0f;
+        
         // @Note: Rendering graph
         {
             HMM_Vec2 origin = { padding, window_size.Y - padding };
@@ -227,7 +268,9 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
                 origin.X + 2.0f, window_size.Y
             };
 
-            r_grid(&ctx, origin, window_size, line_width, line_spacing);
+            f32 t = ilerpf(scale_min, scale_max, camera.scale);
+            f32 grid_split = (f32) ((s32) lerpf(3.0f, 1.0f, t));
+            r_grid(&ctx, origin, window_size, line_width, line_spacing*grid_split);
             
             r_rect(&ctx, axis_y, 0x4A4A4AFF, 0.0f);
             r_rect(&ctx, axis_x, 0x4A4A4AFF, 0.0f);
