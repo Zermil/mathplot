@@ -43,9 +43,73 @@ struct Graph_Data
     f32 *ys;
 };
 
+typedef struct Camera Camera;
+struct Camera
+{
+    HMM_Vec2 offset;
+    f32 scale;
+};
+
+internal void screen_to_camera(Camera *camera, f32 x, f32 y, f32 *ox, f32 *oy)
+{
+    *ox = (x + camera->offset.X) * camera->scale;
+    *oy = (y + camera->offset.Y) * camera->scale;
+}
+
+internal void camera_to_screen(Camera *camera, f32 x, f32 y, f32 *ox, f32 *oy)
+{
+    *ox = (x/camera->scale) - camera->offset.X;
+    *oy = (y/camera->scale) - camera->offset.Y;
+}
+
 internal f32 lerpf(f32 a, f32 b, f32 t)
 {
     return(a*(1.0f - t) + b*t);
+}
+
+internal void r_grid(R_Ctx *ctx, HMM_Vec2 origin, HMM_Vec2 window_size, f32 line_width, f32 line_spacing)
+{
+    // @Note: Vertical lines
+    HMM_Vec2 grid_forward = { origin.X + line_spacing, 0.0f };
+    HMM_Vec2 grid_back = { origin.X - line_spacing, 0.0f };
+    while (grid_forward.X <= window_size.X || grid_back.X >= 0.0f) {
+        RectF32 forward_y = {
+            grid_forward.X - line_width*.5f, 0.0f,
+            grid_forward.X + line_width*.5f, window_size.Y
+        };
+
+        RectF32 back_y = {
+            grid_back.X - line_width*.5f, 0.0f,
+            grid_back.X + line_width*.5f, window_size.Y
+        };
+                
+        r_rect(ctx, forward_y, 0x262626FF, 0.0f);
+        r_rect(ctx, back_y, 0x262626FF, 0.0f);
+                
+        grid_forward.X += line_spacing;
+        grid_back.X -= line_spacing;
+    }
+
+    // @Note: Horizontal lines
+    grid_forward = { 0.0f, origin.Y + line_spacing };
+    grid_back = { 0.0f, origin.Y - line_spacing };
+    while (grid_forward.Y <= window_size.Y || grid_back.Y >= 0.0f) {
+        RectF32 forward_x = {
+            0.0f, grid_forward.Y - line_width*.5f,
+            window_size.X, grid_forward.Y + line_width*.5f
+        };
+
+        RectF32 back_x = {
+            0.0f, grid_back.Y - line_width*.5f,
+            window_size.X, grid_back.Y + line_width*.5f
+        };
+        
+        r_rect(ctx, forward_x, 0x262626FF, 0.0f);
+        r_rect(ctx, back_x, 0x262626FF, 0.0f);
+                
+        grid_forward.Y += line_spacing;
+        grid_back.Y -= line_spacing;
+    }
 }
 
 int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, int cmd_show)
@@ -73,6 +137,11 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
     r_window_equip(window);
     
     Font font = font_init(arena, str8("./Inconsolata-Regular.ttf"), 16, 96);
+    
+    Camera camera = {0};
+    b32 track_mouse = 0;
+    HMM_Vec2 mouse = {0};
+    camera.scale = 1.0f;
 
     const f32 controls_size = 30.0f;
     const f32 padding = 30.0f;
@@ -110,6 +179,29 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
                 should_quit = 1;
                 goto frame_end;
             }
+
+            switch (event->kind) {
+                case GFX_EVENT_MBUTTONDOWN:
+                case GFX_EVENT_LBUTTONDOWN: {
+                    gfx_mouse_set_capture(window, 1);
+                    mouse = event->mouse;
+                    track_mouse = 1;
+                } break;
+
+                case GFX_EVENT_MBUTTONUP:
+                case GFX_EVENT_LBUTTONUP: {
+                    gfx_mouse_set_capture(window, 0);
+                    track_mouse = 0;
+                } break;
+
+                case GFX_EVENT_MOUSEMOVE: {
+                    if (track_mouse) {
+                        camera.offset.X += (event->mouse.X - mouse.X)/camera.scale;
+                        camera.offset.Y += (event->mouse.Y - mouse.Y)/camera.scale;
+                        mouse = event->mouse;
+                    }
+                } break;
+            }
         }
         
         HMM_Vec2 window_size = {0};
@@ -122,6 +214,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
         // @Note: Rendering graph
         {
             HMM_Vec2 origin = { padding, window_size.Y - padding };
+            screen_to_camera(&camera, origin.X, origin.Y, &origin.X, &origin.Y);
             
             RectF32 axis_x = {
                 0.0f, origin.Y - 2.0f, 
@@ -133,27 +226,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
                 origin.X + 2.0f, window_size.Y
             };
 
-            // @Note: Vertical lines
-            HMM_Vec2 line_start = { origin.X + line_spacing, 0.0f };
-            while (line_start.X <= window_size.X) {
-                RectF32 grid_line_y = {
-                    line_start.X - line_width*.5f, 0.0f,
-                    line_start.X + line_width*.5f, window_size.Y
-                };
-                r_rect(&ctx, grid_line_y, 0x262626FF, 0.0f);
-                line_start.X += line_spacing;
-            }
-
-            // @Note: Horizontal lines
-            line_start = { 0.0f, origin.Y - line_spacing };
-            while (line_start.Y >= 0.0f) {
-                RectF32 grid_line_y = {
-                    0.0f, line_start.Y - line_width*.5f,
-                    window_size.X, line_start.Y + line_width*.5f
-                };
-                r_rect(&ctx, grid_line_y, 0x262626FF, 0.0f);
-                line_start.Y -= line_spacing;
-            }
+            r_grid(&ctx, origin, window_size, line_width, line_spacing);
             
             r_rect(&ctx, axis_y, 0x4A4A4AFF, 0.0f);
             r_rect(&ctx, axis_x, 0x4A4A4AFF, 0.0f);
