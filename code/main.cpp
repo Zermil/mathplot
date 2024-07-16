@@ -67,6 +67,8 @@ internal f32 lerpf(f32 a, f32 b, f32 t)
     return(a*(1.0f - t) + b*t);
 }
 
+// @ToDo: No use starting from 'origin.X; when camera offset is very high, better
+// to figure out where to start drawing the grid and go from there.
 internal void r_grid(R_Ctx *ctx, HMM_Vec2 origin, HMM_Vec2 window_size, f32 line_width, f32 line_spacing)
 {
     // @Note: Vertical lines
@@ -77,15 +79,15 @@ internal void r_grid(R_Ctx *ctx, HMM_Vec2 origin, HMM_Vec2 window_size, f32 line
             grid_forward.X - line_width*.5f, 0.0f,
             grid_forward.X + line_width*.5f, window_size.Y
         };
+        if (0.0f <= grid_forward.X && grid_forward.X <= window_size.X) r_rect(ctx, forward_y, 0x262626FF, 0.0f);
+        
 
         RectF32 back_y = {
             grid_back.X - line_width*.5f, 0.0f,
             grid_back.X + line_width*.5f, window_size.Y
         };
-                
-        r_rect(ctx, forward_y, 0x262626FF, 0.0f);
-        r_rect(ctx, back_y, 0x262626FF, 0.0f);
-                
+        if (0.0f <= grid_back.X && grid_back.X <= window_size.X) r_rect(ctx, back_y, 0x262626FF, 0.0f);
+        
         grid_forward.X += line_spacing;
         grid_back.X -= line_spacing;
     }
@@ -98,15 +100,14 @@ internal void r_grid(R_Ctx *ctx, HMM_Vec2 origin, HMM_Vec2 window_size, f32 line
             0.0f, grid_forward.Y - line_width*.5f,
             window_size.X, grid_forward.Y + line_width*.5f
         };
-
+        if (0.0f <= grid_forward.Y && grid_forward.Y <= window_size.Y) r_rect(ctx, forward_x, 0x262626FF, 0.0f);
+        
         RectF32 back_x = {
             0.0f, grid_back.Y - line_width*.5f,
             window_size.X, grid_back.Y + line_width*.5f
         };
+        if (0.0f <= grid_back.Y && grid_back.Y <= window_size.Y) r_rect(ctx, back_x, 0x262626FF, 0.0f);
         
-        r_rect(ctx, forward_x, 0x262626FF, 0.0f);
-        r_rect(ctx, back_x, 0x262626FF, 0.0f);
-                
         grid_forward.Y += line_spacing;
         grid_back.Y -= line_spacing;
     }
