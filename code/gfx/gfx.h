@@ -17,7 +17,11 @@ typedef enum {
     GFX_EVENT_MOUSE,
     GFX_EVENT_KEYDOWN,
     GFX_EVENT_LBUTTONUP,
+    GFX_EVENT_MBUTTONUP,
     GFX_EVENT_LBUTTONDOWN,
+    GFX_EVENT_MBUTTONDOWN,
+    GFX_EVENT_MOUSEMOVE,
+    GFX_EVENT_MOUSEWHEEL,
     GFX_EVENT_DROPFILES,
 } GFX_Event_Kind;
 
@@ -44,8 +48,8 @@ typedef struct GFX_Event {
     
     u64 character;
     GFX_Drop_Files drop_files;
-    s32 mouse_x;
-    s32 mouse_y;
+    HMM_Vec2 mouse;
+    f32 mouse_wheel;
 } GFX_Event;
 
 typedef struct {
@@ -78,6 +82,7 @@ internal b32 gfx_window_get_resizable(GFX_Window *window);
 internal b32 gfx_mouse_get_screen_pos(s32 *mx, s32 *my);
 internal b32 gfx_mouse_get_relative_pos(GFX_Window *window, s32 *mx, s32 *my);
 internal void gfx_mouse_set_cursor(GFX_Window *window, GFX_Cursor_Kind kind);
+internal void gfx_mouse_set_capture(GFX_Window *window, b32 capture);
 
 internal void gfx_error_display(GFX_Window *window, String8 text, String8 caption);
 

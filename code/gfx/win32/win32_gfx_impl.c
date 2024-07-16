@@ -91,17 +91,48 @@ internal LRESULT CALLBACK gfx_win32_window_proc(HWND handle, UINT msg, WPARAM wP
             event->drop_files = drop_files;
             DragFinish(hdrop);
         } break;
-        
+
+        case WM_MBUTTONUP:
         case WM_LBUTTONUP: {
             // @Note: wParam here, describes what key was down when we release mouse
             // could be useful with ctrl+click.
-            GFX_Event *event = gfx_events_push(GFX_EVENT_LBUTTONUP, window);
-            gfx_mouse_get_relative_pos(window, &event->mouse_x, &event->mouse_y);
+            GFX_Event_Kind kind = GFX_EVENT_NONE;
+            switch (msg) {
+                case WM_MBUTTONUP: kind = GFX_EVENT_MBUTTONUP; break;
+                case WM_LBUTTONUP: kind = GFX_EVENT_LBUTTONUP; break;
+            }
+            Assert(kind != GFX_EVENT_NONE);
+            
+            GFX_Event *event = gfx_events_push(kind, window);
+            event->mouse.X = (f32) GET_X_LPARAM(lParam);
+            event->mouse.Y = (f32) GET_Y_LPARAM(lParam);
         } break;
-        
+
+        case WM_MBUTTONDOWN:
         case WM_LBUTTONDOWN: {
-            GFX_Event *event = gfx_events_push(GFX_EVENT_LBUTTONDOWN, window);
-            gfx_mouse_get_relative_pos(window, &event->mouse_x, &event->mouse_y);
+            GFX_Event_Kind kind = GFX_EVENT_NONE;
+            switch (msg) {
+                case WM_MBUTTONDOWN: kind = GFX_EVENT_MBUTTONDOWN; break;
+                case WM_LBUTTONDOWN: kind = GFX_EVENT_LBUTTONDOWN; break;
+            }
+            Assert(kind != GFX_EVENT_NONE);
+            
+            GFX_Event *event = gfx_events_push(kind, window);
+            event->mouse.X = (f32) GET_X_LPARAM(lParam);
+            event->mouse.Y = (f32) GET_Y_LPARAM(lParam);
+        } break;
+
+        case WM_MOUSEMOVE: {
+            GFX_Event *event = gfx_events_push(GFX_EVENT_MOUSEMOVE, window);
+            event->mouse.X = (f32) GET_X_LPARAM(lParam);
+            event->mouse.Y = (f32) GET_Y_LPARAM(lParam);
+        } break;
+
+        case WM_MOUSEWHEEL: {
+            GFX_Event *event = gfx_events_push(GFX_EVENT_MOUSEWHEEL, window);
+            event->mouse_wheel = GET_WHEEL_DELTA_WPARAM(wParam);
+            event->mouse.X = (f32) GET_X_LPARAM(lParam);
+            event->mouse.Y = (f32) GET_Y_LPARAM(lParam);
         } break;
     }
     
@@ -512,6 +543,20 @@ internal void gfx_mouse_set_cursor(GFX_Window *window, GFX_Cursor_Kind kind)
         if (w->cursor != cursor) {
             w->cursor = cursor;
             SetCursor(w->cursor);
+        }
+    }
+}
+
+internal void gfx_mouse_set_capture(GFX_Window *window, b32 capture)
+{
+    if (!gfx_is_init()) {
+        er_push(str8("GFX layer not initialized"));
+    } else {
+        Win32_Window *w = win32_window_from_opaque(window);
+        if (capture) {
+            SetCapture(w->handle);
+        } else {
+            ReleaseCapture();
         }
     }
 }
