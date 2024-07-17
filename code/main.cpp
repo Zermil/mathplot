@@ -245,10 +245,10 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
         R_List font_list = {0};
         R_Ctx font_ctx = r_make_context(frame_arena, &font_list);
         
-        r_frame_begin(window);
-
         const f32 line_spacing = 80.0f*camera.scale;
         
+        r_frame_begin(window);
+
         // @Note: Rendering graph
         {
             HMM_Vec2 origin = { padding, window_size.Y - padding };
@@ -277,9 +277,9 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
             };
             r_rect(&ctx, controls, 0x333333FF, 0.0f);
         }
-
-        r_flush_batches(window, &list);
+        
         r_flush_batches(window, &font_list);
+        r_flush_batches(window, &list);
         
         r_frame_end(window);
         
