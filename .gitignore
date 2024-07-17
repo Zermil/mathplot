@@ -5,6 +5,8 @@
 *.pdb
 *.txt
 *.rdi
+build/*.lib
+build/*.exp
 !LICENSE.TXT
 !TODO.txt
 *.raddbg
