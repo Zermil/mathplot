@@ -72,12 +72,14 @@ internal f32 ilerpf(f32 a, f32 b, f32 v)
     return((v - a)/(b - a));
 }
 
-internal void r_grid(R_Ctx *ctx, Font *font, HMM_Vec2 origin, HMM_Vec2 window_size, f32 line_width, f32 line_spacing)
+internal void r_grid(R_Ctx *ctx, R_Ctx *font_ctx, Font *font, HMM_Vec2 origin, HMM_Vec2 window_size, f32 line_spacing)
 {
-    const f32 a = (f32) ((s32) (origin.X/line_spacing));
-    const f32 b = (f32) ((s32) (origin.Y/line_spacing));
+    const f32 line_width = 2.0f;
     const f32 padding = 10.0f;
     HMM_Vec2 start = {0};
+    
+    const f32 a = (f32) ((s32) (origin.X/line_spacing));
+    const f32 b = (f32) ((s32) (origin.Y/line_spacing));
     
     start = { origin.X - a*line_spacing, 0.0f };
     while (start.X <= window_size.X) {    
@@ -86,12 +88,11 @@ internal void r_grid(R_Ctx *ctx, Font *font, HMM_Vec2 origin, HMM_Vec2 window_si
             start.X + line_width*.5f, window_size.Y
         };
     
-        r_rect(ctx, rect, 0x262626FF, 0.0f);
-
         String8 str = str8("xn");
         HMM_Vec2 text_pos = { start.X + padding, origin.Y + font->font_size + padding };
         
-        font_r_text(ctx, font, text_pos, str);
+        r_rect(ctx, rect, 0x262626FF, 0.0f);
+        font_r_text(font_ctx, font, text_pos, str);
         start.X += line_spacing;
     }
 
@@ -107,9 +108,22 @@ internal void r_grid(R_Ctx *ctx, Font *font, HMM_Vec2 origin, HMM_Vec2 window_si
         HMM_Vec2 text_pos = { origin.X - w - padding, start.Y + font->font_size + padding };
             
         r_rect(ctx, rect, 0x262626FF, 0.0f);
-        font_r_text(ctx, font, text_pos, str);
+        font_r_text(font_ctx, font, text_pos, str);
         start.Y += line_spacing;
     }
+
+    RectF32 axis_x = {
+        0.0f, origin.Y - line_width, 
+        window_size.X, origin.Y + line_width
+    };
+            
+    RectF32 axis_y = {
+        origin.X - line_width, 0.0f,
+        origin.X + line_width, window_size.Y
+    };
+    
+    r_rect(ctx, axis_y, 0x4A4A4AFF, 0.0f);
+    r_rect(ctx, axis_x, 0x4A4A4AFF, 0.0f);
 }
 
 int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, int cmd_show)
@@ -227,33 +241,24 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
         
         R_List list = {0};
         R_Ctx ctx = r_make_context(frame_arena, &list);
+
+        R_List font_list = {0};
+        R_Ctx font_ctx = r_make_context(frame_arena, &font_list);
+        
         r_frame_begin(window);
 
         const f32 line_spacing = 80.0f*camera.scale;
-        const f32 line_width = 2.0f;
         
         // @Note: Rendering graph
         {
             HMM_Vec2 origin = { padding, window_size.Y - padding };
             screen_to_camera(&camera, origin.X, origin.Y, &origin.X, &origin.Y);
             
-            RectF32 axis_x = {
-                0.0f, origin.Y - 2.0f, 
-                window_size.X, origin.Y + 2.0f
-            };
-            
-            RectF32 axis_y = {
-                origin.X - 2.0f, 0.0f,
-                origin.X + 2.0f, window_size.Y
-            };
-
             f32 t = ilerpf(scale_min, scale_max, camera.scale);
             f32 grid_split = (f32) ((s32) lerpf(3.0f, 1.0f, t));
-            r_grid(&ctx, &font, origin, window_size, line_width, line_spacing*grid_split);
             
-            r_rect(&ctx, axis_y, 0x4A4A4AFF, 0.0f);
-            r_rect(&ctx, axis_x, 0x4A4A4AFF, 0.0f);
-
+            r_grid(&ctx, &font_ctx, &font, origin, window_size, line_spacing*grid_split);
+            
             const HMM_Vec2 step = { 1.0f, 1.0f };
             for (u32 i = 0; i < data_size; ++i) {
                 HMM_Vec2 point_pos = {
@@ -274,6 +279,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
         }
 
         r_flush_batches(window, &list);
+        r_flush_batches(window, &font_list);
+        
         r_frame_end(window);
         
     frame_end:
