@@ -6,11 +6,9 @@
 
 #ifndef FULL_WIN32
 # define NOGDICAPMASKS
-# define NOSYSMETRICS
 # define NOMENUS
 # define NOICONS
 # define NOSYSCOMMANDS
-# define NORASTEROPS
 # define OEMRESOURCE
 # define NOATOM
 # define NOCLIPBOARD

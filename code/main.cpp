@@ -14,6 +14,10 @@
 #define WIDTH 1280
 #define HEIGHT 720
 
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <stdio.h>
+#include <stb_image_write.h>
+
 #include <HandmadeMath.h>
 #include <optick.h>
 
@@ -280,8 +284,10 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
         
         r_flush_batches(window, &font_list);
         r_flush_batches(window, &list);
-        
+
         r_frame_end(window);
+        // u8 *pixels =  r_frame_end_get_backbuffer(frame_arena, window, (s32) window_size.X, (s32) window_size.Y);
+        // stbi_write_jpg("ss.png", (s32) window_size.X, (s32) window_size.Y, 4, pixels, 100);
         
     frame_end:
         {

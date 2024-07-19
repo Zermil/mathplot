@@ -392,8 +392,7 @@ internal void r_frame_begin(GFX_Window *window)
         if (gfx_window_is_valid(window)) {
             D3D11_Window *w = d3d11_window_from_opaque(window);
             if (w->swap_chain) {
-                f32 width = 0.0f;
-                f32 height = 0.0f;
+                f32 width, height;
                 gfx_window_get_rect(window, &width, &height);
                 
                 if (width > 0 && height > 0) {
@@ -428,8 +427,7 @@ internal b32 r_submit_quads(GFX_Window *window, R_Quad_Node *draw_data, usize to
     }
     
     if (!error) {
-        f32 width = 0.0f;
-        f32 height = 0.0f;
+        f32 width, height;
         gfx_window_get_rect(window, &width, &height);
         
         D3D11_Window *w = d3d11_window_from_opaque(window);
@@ -460,7 +458,6 @@ internal b32 r_submit_quads(GFX_Window *window, R_Quad_Node *draw_data, usize to
                 offset += bytes;
             }
         }
-        
         d3d11_state.context->Unmap(d3d11_state.buffer[I_BUFFER], 0);
         
         D3D11_Texture *d3d11_texture = 0;
@@ -514,6 +511,61 @@ internal void r_frame_end(GFX_Window *window)
             }
         }
     }
+}
+
+internal u8 *r_frame_end_get_backbuffer(GFX_Window *window, Arena *arena)
+{
+    u8 *result = 0;
+    if (!r_is_init()) {
+        er_push(str8("render backend not initialized"));
+    } else {
+        if (gfx_window_is_valid(window)) {
+            D3D11_Window *w = d3d11_window_from_opaque(window);
+            if (w->swap_chain && w->target) {
+                w->swap_chain->Present(0, 0);
+
+                f32 width, height;
+                gfx_window_get_rect(window, &width, &height);
+                
+                u32 bytes = (u32) (width*height*4);
+                result = arena_push_array(arena, u8, bytes);
+
+                ID3D11Texture2D *surface = 0;
+                w->swap_chain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void **) &surface);
+
+                D3D11_TEXTURE2D_DESC desc = {0};
+                surface->GetDesc(&desc);
+                desc.BindFlags = 0;
+                desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ | D3D11_CPU_ACCESS_WRITE;
+                desc.Usage = D3D11_USAGE_STAGING;
+
+                ID3D11Texture2D *tex = 0;
+                d3d11_state.device->CreateTexture2D(&desc, 0, &tex);
+                d3d11_state.context->CopyResource(tex, surface);
+                
+                D3D11_MAPPED_SUBRESOURCE texture_resource = {0};
+                d3d11_state.context->Map(tex, 0, D3D11_MAP_READ_WRITE, 0, &texture_resource);
+
+                u8 *dst = result;
+                u8 *src = ((u8 *) texture_resource.pData);
+                for (u32 i = 0; i < (u32) height; ++i) {
+                    MemoryCopy(dst, src, (u32) (width*4));
+                    
+                    dst += (u32) (width*4);
+                    src += texture_resource.RowPitch;
+                }
+                
+                d3d11_state.context->Unmap(tex, 0);
+                    
+                tex->Release();
+                surface->Release();
+                
+                w->target->Release();
+            }
+        }
+    }
+
+    return(result);
 }
 
 internal R_Texture2D *r_texture_create(void *data, u32 width, u32 height)

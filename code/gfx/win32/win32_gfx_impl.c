@@ -131,8 +131,7 @@ internal LRESULT CALLBACK gfx_win32_window_proc(HWND handle, UINT msg, WPARAM wP
         case WM_MOUSEWHEEL: {
             GFX_Event *event = gfx_events_push(GFX_EVENT_MOUSEWHEEL, window);
             event->mouse_wheel = GET_WHEEL_DELTA_WPARAM(wParam);
-            event->mouse.X = (f32) GET_X_LPARAM(lParam);
-            event->mouse.Y = (f32) GET_Y_LPARAM(lParam);
+            gfx_mouse_get_screen_pos((s32 *) &event->mouse.X, (s32 *) &event->mouse.Y);
         } break;
     }
     

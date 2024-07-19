@@ -78,6 +78,7 @@ internal b32 gfx_window_set_drop_files(GFX_Window *window, b32 drop_files);
 
 internal b32 gfx_window_get_rect(GFX_Window *window, f32 *width, f32 *height);
 internal b32 gfx_window_get_resizable(GFX_Window *window);
+internal void gfx_window_save_to_file(GFX_Window *window, Arena *arena);
 
 internal b32 gfx_mouse_get_screen_pos(s32 *mx, s32 *my);
 internal b32 gfx_mouse_get_relative_pos(GFX_Window *window, s32 *mx, s32 *my);
