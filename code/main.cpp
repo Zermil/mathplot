@@ -106,34 +106,52 @@ internal void r_graph(GFX_Window *window, R_Ctx *ctx, R_Ctx *font_ctx, Font *fon
     
     HMM_Vec2 start = {0};
 
+    // @Note: Vertical bars
     start = { origin.X - a*grid_spacing, 0.0f };
-    while (start.X <= window_size.X) {    
-        RectF32 rect = {
-            start.X - line_width*.5f, 0.0f,
-            start.X + line_width*.5f, window_size.Y
-        };
+    while (start.X <= window_size.X) {
+        if (origin.X - padding >= start.X || start.X >= origin.X + padding) {
+            RectF32 rect = {
+                start.X - line_width*.5f, 0.0f,
+                start.X + line_width*.5f, window_size.Y
+            };
     
-        String8 str = str8("xn");
-        HMM_Vec2 text_pos = { start.X + padding, origin.Y + font->font_size + padding };
-        
-        r_rect(ctx, rect, 0x262626FF, 0.0f);
-        font_r_text(font_ctx, font, text_pos, str);
+            String8 str = str8("xn");
+            HMM_Vec2 text_pos = { start.X + padding, origin.Y + font->font_size + padding };
+            // @ToDo: This + 30.0f is hardcoded for now because of the bar at the top.
+            if (text_pos.Y <= 2.0f*padding + 30.0f) { 
+                text_pos.Y = 2.0f*padding + 30.0f;
+            } else if (text_pos.Y + padding >= window_size.Y) {
+                text_pos.Y = window_size.Y - padding;
+            }
+            
+            r_rect(ctx, rect, 0x262626FF, 0.0f);
+            font_r_text(font_ctx, font, text_pos, str);
+        }
         start.X += grid_spacing;
     }
 
+    // @Note: Horizontal bars
     start = { 0.0f, origin.Y - b*grid_spacing };
-    while (start.Y <= window_size.Y) {    
-        RectF32 rect = {
-            0.0f, start.Y - line_width*.5f,
-            window_size.X, start.Y + line_width*.5f
-        };
+    while (start.Y <= window_size.Y) {
+        if (origin.Y - padding >= start.Y || start.Y >= origin.Y + padding) {
+            RectF32 rect = {
+                0.0f, start.Y - line_width*.5f,
+                window_size.X, start.Y + line_width*.5f
+            };
 
-        String8 str = str8("yn");
-        f32 w = font_text_width(font, str);
-        HMM_Vec2 text_pos = { origin.X - w - padding, start.Y + font->font_size + padding };
+            String8 str = str8("yn");
+            f32 w = font_text_width(font, str);
+            HMM_Vec2 text_pos = { origin.X - w - padding, start.Y + font->font_size + padding };
+            if (text_pos.X <= padding) {
+                text_pos.X = padding;
+            } else if (text_pos.X + w + padding >= window_size.X) {
+                text_pos.X = window_size.X - w - padding;
+            }
             
-        r_rect(ctx, rect, 0x262626FF, 0.0f);
-        font_r_text(font_ctx, font, text_pos, str);
+            r_rect(ctx, rect, 0x262626FF, 0.0f);
+            font_r_text(font_ctx, font, text_pos, str);
+        }
+        
         start.Y += grid_spacing;
     }
 
@@ -251,7 +269,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
                         if (event->mouse_wheel > 0.0f) {
                             camera.scale = MIN(camera.scale + camera.scale_step, camera.scale_max);
                         } else {
-                            camera.scale = MAX(camera.scale - camera.scale_step*1.4f, camera.scale_min);
+                            camera.scale = MAX(camera.scale - camera.scale_step, camera.scale_min);
                         }
                     }
                     camera_to_screen(&camera, mouse.X, mouse.Y, &after.X, &after.Y);
