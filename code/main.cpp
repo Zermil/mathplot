@@ -52,6 +52,10 @@ struct Camera
 {
     HMM_Vec2 offset;
     f32 scale;
+
+    f32 scale_step;
+    f32 scale_min;
+    f32 scale_max;
 };
 
 internal void screen_to_camera(Camera *camera, f32 x, f32 y, f32 *ox, f32 *oy)
@@ -76,16 +80,33 @@ internal f32 ilerpf(f32 a, f32 b, f32 v)
     return((v - a)/(b - a));
 }
 
-internal void r_grid(R_Ctx *ctx, R_Ctx *font_ctx, Font *font, HMM_Vec2 origin, HMM_Vec2 window_size, f32 line_spacing)
+internal void r_graph(GFX_Window *window, R_Ctx *ctx, R_Ctx *font_ctx, Font *font, Camera *camera)
 {
+    const u32 data_size = 5;
+    f32 xs[data_size] = { 0.0f, 1.0f, 2.5f, 5.0f, 10.0f };
+    f32 ys[data_size] = { 0.0f, 1.0f, 4.0f, 5.0f, 10.0f };
+    
+    HMM_Vec2 window_size;
+    gfx_window_get_rect(window, &window_size.X, &window_size.Y);
+    
+    HMM_Vec2 origin = { window_size.X*.5f, window_size.Y*.5f};
+    screen_to_camera(camera, origin.X, origin.Y, &origin.X, &origin.Y);
+    
     const f32 line_width = 2.0f;
     const f32 padding = 10.0f;
+    const f32 line_spacing = 80.0f*camera->scale;
+
+    // @ToDo: Some better way of changing scale when zoomed in.
+    const f32 t = ilerpf(camera->scale_min, camera->scale_max, camera->scale);
+    const f32 grid_scale = (f32) ((s32) lerpf(5.0f, 1.0f, t));
+    const f32 grid_spacing = line_spacing*grid_scale;
+    
+    const f32 a = (f32) ((s32) (origin.X/grid_spacing)) + 1.0f;
+    const f32 b = (f32) ((s32) (origin.Y/grid_spacing)) + 1.0f;
+    
     HMM_Vec2 start = {0};
-    
-    const f32 a = (f32) ((s32) (origin.X/line_spacing));
-    const f32 b = (f32) ((s32) (origin.Y/line_spacing));
-    
-    start = { origin.X - a*line_spacing, 0.0f };
+
+    start = { origin.X - a*grid_spacing, 0.0f };
     while (start.X <= window_size.X) {    
         RectF32 rect = {
             start.X - line_width*.5f, 0.0f,
@@ -97,10 +118,10 @@ internal void r_grid(R_Ctx *ctx, R_Ctx *font_ctx, Font *font, HMM_Vec2 origin, H
         
         r_rect(ctx, rect, 0x262626FF, 0.0f);
         font_r_text(font_ctx, font, text_pos, str);
-        start.X += line_spacing;
+        start.X += grid_spacing;
     }
 
-    start = { 0.0f, origin.Y - b*line_spacing };
+    start = { 0.0f, origin.Y - b*grid_spacing };
     while (start.Y <= window_size.Y) {    
         RectF32 rect = {
             0.0f, start.Y - line_width*.5f,
@@ -113,7 +134,7 @@ internal void r_grid(R_Ctx *ctx, R_Ctx *font_ctx, Font *font, HMM_Vec2 origin, H
             
         r_rect(ctx, rect, 0x262626FF, 0.0f);
         font_r_text(font_ctx, font, text_pos, str);
-        start.Y += line_spacing;
+        start.Y += grid_spacing;
     }
 
     RectF32 axis_x = {
@@ -128,6 +149,16 @@ internal void r_grid(R_Ctx *ctx, R_Ctx *font_ctx, Font *font, HMM_Vec2 origin, H
     
     r_rect(ctx, axis_y, 0x4A4A4AFF, 0.0f);
     r_rect(ctx, axis_x, 0x4A4A4AFF, 0.0f);
+
+    // @Note: Draw points
+    const HMM_Vec2 step = { 1.0f, 1.0f };
+    for (u32 i = 0; i < data_size; ++i) {
+        HMM_Vec2 point_pos = {
+            origin.X + ((xs[i]/step.X)*line_spacing),
+            origin.Y - ((ys[i]/step.Y)*line_spacing)
+        };
+        r_circ(ctx, point_pos, 6.0f, 0xFF0000FF);
+    }
 }
 
 int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, int cmd_show)
@@ -156,25 +187,15 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
     
     Font font = font_init(arena, str8("./Inconsolata-Regular.ttf"), 16, 96);
     
-    Camera camera = {0};
     b32 track_mouse = 0;
     HMM_Vec2 mouse = {0};
+    
+    Camera camera = {0};
     camera.scale = 1.0f;
-    
-    const f32 controls_size = 30.0f;
-    const f32 padding = 30.0f;
-    
-    const u32 data_size = 5;
-    f32 xs[data_size] = { 0.0f, 1.0f, 2.5f, 5.0f, 10.0f };
-    f32 ys[data_size] = { 0.0f, 1.0f, 4.0f, 5.0f, 10.0f };
+    camera.scale_step = 0.1f;
+    camera.scale_max = 5.0f;
+    camera.scale_min = 0.2f;
 
-    const f32 scale_step = 0.1f;
-    const f32 scale_max = 3.0f;
-    const f32 scale_min = 0.4f;
-    
-    // f32 max_x = 5.0f;
-    // f32 max_y = 5.0f;
-    
     b32 should_quit = 0;
     f64 frame_prev = os_ticks_now();
     
@@ -228,9 +249,9 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
                     camera_to_screen(&camera, mouse.X, mouse.Y, &before.X, &before.Y);
                     {
                         if (event->mouse_wheel > 0.0f) {
-                            camera.scale = MIN(camera.scale + scale_step, scale_max);
+                            camera.scale = MIN(camera.scale + camera.scale_step, camera.scale_max);
                         } else {
-                            camera.scale = MAX(camera.scale - scale_step, scale_min);
+                            camera.scale = MAX(camera.scale - camera.scale_step*1.4f, camera.scale_min);
                         }
                     }
                     camera_to_screen(&camera, mouse.X, mouse.Y, &after.X, &after.Y);
@@ -249,44 +270,28 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
         R_List font_list = {0};
         R_Ctx font_ctx = r_make_context(frame_arena, &font_list);
         
-        const f32 line_spacing = 80.0f*camera.scale;
-        
         r_frame_begin(window);
 
         // @Note: Rendering graph
-        {
-            HMM_Vec2 origin = { padding, window_size.Y - padding };
-            screen_to_camera(&camera, origin.X, origin.Y, &origin.X, &origin.Y);
-            
-            f32 t = ilerpf(scale_min, scale_max, camera.scale);
-            f32 grid_split = (f32) ((s32) lerpf(3.0f, 1.0f, t));
-            
-            r_grid(&ctx, &font_ctx, &font, origin, window_size, line_spacing*grid_split);
-            
-            const HMM_Vec2 step = { 1.0f, 1.0f };
-            for (u32 i = 0; i < data_size; ++i) {
-                HMM_Vec2 point_pos = {
-                    origin.X + ((xs[i]/step.X)*line_spacing),
-                    origin.Y - ((ys[i]/step.Y)*line_spacing)
-                };
-                r_circ(&ctx, point_pos, 6.0f, 0xFF0000FF);
-            }
+        {            
+            r_graph(window, &ctx, &font_ctx, &font, &camera);
         }
 
         // @Note: Rendering and handling ui
         {
+            const f32 controls_size = 30.0f;
             RectF32 controls = {
                 0.0f, 0.0f,
                 window_size.X, controls_size
             };
             r_rect(&ctx, controls, 0x333333FF, 0.0f);
         }
-        
+
         r_flush_batches(window, &font_list);
         r_flush_batches(window, &list);
 
         r_frame_end(window);
-        // u8 *pixels =  r_frame_end_get_backbuffer(frame_arena, window, (s32) window_size.X, (s32) window_size.Y);
+        // u8 *pixels = r_frame_end_get_backbuffer(window, frame_arena);
         // stbi_write_jpg("ss.png", (s32) window_size.X, (s32) window_size.Y, 4, pixels, 100);
         
     frame_end:
