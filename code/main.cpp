@@ -98,14 +98,14 @@ internal void r_graph(GFX_Window *window, R_Ctx *ctx, R_Ctx *font_ctx, Font *fon
 
     // @ToDo: Some better way of changing scale when zoomed in.
     const f32 t = ilerpf(camera->scale_min, camera->scale_max, camera->scale);
-    const f32 grid_scale = (f32) ((s32) lerpf(5.0f, 1.0f, t));
+    const f32 grid_scale = (f32) ((s32) lerpf(4.0f, 1.0f, t));
     const f32 grid_spacing = line_spacing*grid_scale;
     
     const f32 a = (f32) ((s32) (origin.X/grid_spacing)) + 1.0f;
     const f32 b = (f32) ((s32) (origin.Y/grid_spacing)) + 1.0f;
     
     HMM_Vec2 start = {0};
-
+    
     // @Note: Vertical bars
     start = { origin.X - a*grid_spacing, 0.0f };
     while (start.X <= window_size.X) {
@@ -116,7 +116,8 @@ internal void r_graph(GFX_Window *window, R_Ctx *ctx, R_Ctx *font_ctx, Font *fon
             };
     
             String8 str = str8("xn");
-            HMM_Vec2 text_pos = { start.X + padding, origin.Y + font->font_size + padding };
+            f32 w = font_text_width(font, str);
+            HMM_Vec2 text_pos = { start.X - w*.5f, origin.Y + font->font_size + padding };
             // @ToDo: This + 30.0f is hardcoded for now because of the bar at the top.
             if (text_pos.Y <= 2.0f*padding + 30.0f) { 
                 text_pos.Y = 2.0f*padding + 30.0f;
@@ -141,7 +142,7 @@ internal void r_graph(GFX_Window *window, R_Ctx *ctx, R_Ctx *font_ctx, Font *fon
 
             String8 str = str8("yn");
             f32 w = font_text_width(font, str);
-            HMM_Vec2 text_pos = { origin.X - w - padding, start.Y + font->font_size + padding };
+            HMM_Vec2 text_pos = { origin.X - w - padding, start.Y - line_width + font->font_size*.5f};
             if (text_pos.X <= padding) {
                 text_pos.X = padding;
             } else if (text_pos.X + w + padding >= window_size.X) {
@@ -167,7 +168,7 @@ internal void r_graph(GFX_Window *window, R_Ctx *ctx, R_Ctx *font_ctx, Font *fon
     
     r_rect(ctx, axis_y, 0x4A4A4AFF, 0.0f);
     r_rect(ctx, axis_x, 0x4A4A4AFF, 0.0f);
-
+    
     // @Note: Draw points
     const HMM_Vec2 step = { 1.0f, 1.0f };
     for (u32 i = 0; i < data_size; ++i) {
@@ -302,11 +303,11 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
                 0.0f, 0.0f,
                 window_size.X, controls_size
             };
-            r_rect(&ctx, controls, 0x333333FF, 0.0f);
+            r_rect(&font_ctx, controls, 0x333333FF, 0.0f);
         }
 
-        r_flush_batches(window, &font_list);
         r_flush_batches(window, &list);
+        r_flush_batches(window, &font_list);
 
         r_frame_end(window);
         // u8 *pixels = r_frame_end_get_backbuffer(window, frame_arena);
