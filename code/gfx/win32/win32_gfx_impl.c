@@ -44,16 +44,28 @@ internal LRESULT CALLBACK gfx_win32_window_proc(HWND handle, UINT msg, WPARAM wP
                 win32_window->render(gfx_window, win32_window->render_data);
                 EndPaint(handle, &ps);
             }
+
+            // @Note: This is called at window creation
+            if (win32_arena) {
+                GFX_Event *event = gfx_events_push(GFX_EVENT_SIZING, window);
+                gfx_window_get_rect(window, &event->window_size.X, &event->window_size.Y);
+            }
         } break;
         
         case WM_ENTERSIZEMOVE: {
             Win32_Window *w = gfx_win32_window_from_handle(handle);
             w->resizing = 1;
+
+            GFX_Event *event = gfx_events_push(GFX_EVENT_SIZE_START, window);
+            gfx_window_get_rect(window, &event->window_size.X, &event->window_size.Y);
         } break;
         
         case WM_EXITSIZEMOVE: {
             Win32_Window *w = gfx_win32_window_from_handle(handle);
             w->resizing = 0;
+
+            GFX_Event *event = gfx_events_push(GFX_EVENT_SIZE_END, window);
+            gfx_window_get_rect(window, &event->window_size.X, &event->window_size.Y);
         } break;
         
         case WM_SETCURSOR: {

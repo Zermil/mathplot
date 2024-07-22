@@ -149,3 +149,12 @@ internal void font_r_text(R_Ctx *ctx, Font *font, HMM_Vec2 pos, String8 text)
 {
     font_r_text_ex(ctx, font, pos, text, 1.0f);
 }
+
+internal void font_end(Font *font)
+{
+    if (font->texture) {
+        r_texture_destroy(font->texture);
+    }
+
+    *font = {0};
+}
