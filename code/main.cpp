@@ -1,12 +1,5 @@
-/* @Note: This file is a test for font rendering
- * ideally we want something that just creates a texture atlas with all
- * glyphs and returns that as a texture. We just want a textured quad for now, nothing
- * too fancy.
- *
- * For rasterisation we could look into DWrite but its API and docs are kind of a pain
- * to go through.
- */
 #define R_BACKEND_D3D11 1
+#define FONT_USE_FREETYPE 1
 
 #define FPS 60
 #define FRAME_MS (1000.0/FPS)
@@ -23,7 +16,6 @@
 
 // @Note: For some reason these _have to_ be declared at top level
 // otherwise we get C2208 compile error...
-#define FONT_USE_FREETYPE 1
 #include <ft2build.h>
 #include <freetype/freetype.h>
 
@@ -61,18 +53,15 @@ struct Camera
 typedef struct State State;
 struct State
 {
-    HMM_Vec2 step;
     HMM_Vec2 x_range;
     HMM_Vec2 y_range;
-
+    HMM_Vec2 graph_step;
     HMM_Vec2 pixels_per_unit;
-    HMM_Vec2 origin;
+    HMM_Vec2 graph_origin;
     
     b32 track_mouse;
     HMM_Vec2 mouse;
 
-    HMM_Vec2 capture_size;
-    
     Camera camera;
 };
 
@@ -88,16 +77,6 @@ internal f32 ilerpf(f32 a, f32 b, f32 v)
     return((v - a)/(b - a));
 }
 
-internal void camera_update_offsets(f32 dx, f32 dy)
-{
-    state.camera.offset.X += dx;
-    state.camera.offset.Y += dy;
-    state.x_range.X -= dx/state.pixels_per_unit.X;
-    state.x_range.Y -= dx/state.pixels_per_unit.X;
-    state.y_range.X += dy/state.pixels_per_unit.Y;
-    state.y_range.Y += dy/state.pixels_per_unit.Y;
-}
-
 internal void screen_to_camera(Camera *camera, f32 x, f32 y, f32 *ox, f32 *oy)
 {
     *ox = (x + camera->offset.X) * camera->scale;
@@ -110,23 +89,29 @@ internal void camera_to_screen(Camera *camera, f32 x, f32 y, f32 *ox, f32 *oy)
     *oy = (y/camera->scale) - camera->offset.Y;
 }
 
-internal void grid_correct_limits(HMM_Vec2 window_size)
+internal void graph_fit_limits(GFX_Window *window)
 {
-    HMM_Vec2 top_left = {0};
-    camera_to_screen(&state.camera, top_left.X, top_left.Y, &top_left.X, &top_left.Y);
-                    
-    HMM_Vec2 bottom_right = { window_size.X, window_size.Y };
-    camera_to_screen(&state.camera, bottom_right.X, bottom_right.Y, &bottom_right.X, &bottom_right.Y);
-                    
-    state.x_range.X = (top_left.X - state.origin.X)/state.pixels_per_unit.X;
-    state.x_range.Y = (bottom_right.X - state.origin.X)/state.pixels_per_unit.X;
+    HMM_Vec2 window_size;
+    gfx_window_get_rect(window, &window_size.X, &window_size.Y);
     
-    state.y_range.X = (state.origin.Y - bottom_right.Y)/state.pixels_per_unit.Y;
-    state.y_range.Y = (state.origin.Y - top_left.Y)/state.pixels_per_unit.Y;
-}
+    HMM_Vec2 origin_point = {0};
+    HMM_Vec2 top_left = {0};
+    HMM_Vec2 bottom_right = { window_size.X, window_size.Y };
+    screen_to_camera(&state.camera, state.graph_origin.X, state.graph_origin.Y, &origin_point.X, &origin_point.Y);
+    camera_to_screen(&state.camera, top_left.X, top_left.Y, &top_left.X, &top_left.Y);
+    camera_to_screen(&state.camera, bottom_right.X, bottom_right.Y, &bottom_right.X, &bottom_right.Y);
+    
+    state.x_range.X = (top_left.X - state.graph_origin.X)/state.pixels_per_unit.X;
+    state.x_range.Y = (bottom_right.X - state.graph_origin.X)/state.pixels_per_unit.X;
 
+    state.y_range.X = (state.graph_origin.Y - bottom_right.Y)/state.pixels_per_unit.Y;
+    state.y_range.Y = (state.graph_origin.Y - top_left.Y)/state.pixels_per_unit.Y;
+}
+    
 internal void r_graph(GFX_Window *window, R_Ctx *ctx, R_Ctx *font_ctx, Font *font)
 {
+    OPTICK_EVENT();
+    
     const u32 data_size = 5;
     f32 xs[data_size] = { 0.0f, 1.0f, 2.5f, 5.0f, 10.0f };
     f32 ys[data_size] = { 0.0f, 1.0f, 4.0f, 5.0f, 10.0f };
@@ -134,49 +119,51 @@ internal void r_graph(GFX_Window *window, R_Ctx *ctx, R_Ctx *font_ctx, Font *fon
     HMM_Vec2 window_size;
     gfx_window_get_rect(window, &window_size.X, &window_size.Y);
 
-    HMM_Vec2 origin = {0};
-    screen_to_camera(&state.camera, state.origin.X, state.origin.Y, &origin.X, &origin.Y);
-    
+    HMM_Vec2 origin_point = {0};
+    screen_to_camera(&state.camera, state.graph_origin.X, state.graph_origin.Y, &origin_point.X, &origin_point.Y);
+ 
     const f32 line_width = 2.0f;
     const f32 padding = 10.0f;
-    
-    // @Note: Vertical bars
-    for (s32 i = (s32) (state.x_range.X/state.step.X); i <= (s32) (state.x_range.Y/state.step.X); ++i) {
-        if (i == 0.0f) continue;
+    const HMM_Vec2 ppu = {
+        state.camera.scale*state.graph_step.X*state.pixels_per_unit.X,
+        state.camera.scale*state.graph_step.Y*state.pixels_per_unit.Y
+    };
+
+    for (s32 i = (s32) state.x_range.X; i <= (s32) state.x_range.Y; ++i) {
+        if (i == 0) continue;
 
         HMM_Vec2 start = {
-            origin.X + i*state.step.X*state.pixels_per_unit.X*state.camera.scale,
+            origin_point.X + i*ppu.X,
             0.0f
         };
-        
+
         RectF32 rect = {
             start.X - line_width*.5f, 0.0f,
             start.X + line_width*.5f, window_size.Y
         };
-    
+
         String8 str = str8("xn");
         f32 w = font_text_width(font, str);
-        HMM_Vec2 text_pos = { start.X - w*.5f, origin.Y + font->font_size + padding };
+        HMM_Vec2 text_pos = { start.X - w*.5f, origin_point.Y + font->font_size + padding };
         // @ToDo: This + 30.0f is hardcoded for now because of the bar at the top.
         if (text_pos.Y <= 2.0f*padding + 30.0f) { 
             text_pos.Y = 2.0f*padding + 30.0f;
         } else if (text_pos.Y + padding >= window_size.Y) {
             text_pos.Y = window_size.Y - padding;
         }
-            
+        
         r_rect(ctx, rect, 0x262626FF, 0.0f);
         font_r_text(font_ctx, font, text_pos, str);
     }
 
-    // @Note: Horizontal bars
-    for (s32 i = (s32) (state.y_range.X/state.step.Y); i <= (s32) (state.y_range.Y/state.step.Y); ++i) {
-        if (i == 0.0f) continue;
+    for (s32 i = (s32) state.y_range.X; i <= (s32) state.y_range.Y; ++i) {
+        if (i == 0) continue;
 
         HMM_Vec2 start = {
             0.0f,
-            origin.Y - i*state.step.Y*state.pixels_per_unit.Y*state.camera.scale
+            origin_point.Y - i*ppu.Y
         };
-        
+
         RectF32 rect = {
             0.0f, start.Y - line_width*.5f,
             window_size.X, start.Y + line_width*.5f
@@ -184,35 +171,35 @@ internal void r_graph(GFX_Window *window, R_Ctx *ctx, R_Ctx *font_ctx, Font *fon
 
         String8 str = str8("yn");
         f32 w = font_text_width(font, str);
-        HMM_Vec2 text_pos = { origin.X - w - padding, start.Y - line_width + font->font_size*.5f};
+        HMM_Vec2 text_pos = { origin_point.X - w - padding, start.Y - line_width + font->font_size*.5f};
         if (text_pos.X <= padding) {
             text_pos.X = padding;
         } else if (text_pos.X + w + padding >= window_size.X) {
             text_pos.X = window_size.X - w - padding;
         }
-            
+        
         r_rect(ctx, rect, 0x262626FF, 0.0f);
-        font_r_text(font_ctx, font, text_pos, str);        
+        font_r_text(font_ctx, font, text_pos, str);
     }
     
     RectF32 axis_x = {
-        0.0f, origin.Y - line_width, 
-        window_size.X, origin.Y + line_width
+        0.0f, origin_point.Y - line_width, 
+        window_size.X, origin_point.Y + line_width
     };
             
     RectF32 axis_y = {
-        origin.X - line_width, 0.0f,
-        origin.X + line_width, window_size.Y
+        origin_point.X - line_width, 0.0f,
+        origin_point.X + line_width, window_size.Y
     };
     
     r_rect(ctx, axis_y, 0x4A4A4AFF, 0.0f);
     r_rect(ctx, axis_x, 0x4A4A4AFF, 0.0f);
-    
+
     // @Note: Draw points
     for (u32 i = 0; i < data_size; ++i) {
         HMM_Vec2 point_pos = {
-            origin.X + (xs[i]*state.pixels_per_unit.X*state.camera.scale),
-            origin.Y - (ys[i]*state.pixels_per_unit.Y*state.camera.scale)
+            origin_point.X + (xs[i]*ppu.X),
+            origin_point.Y - (ys[i]*ppu.Y)
         };
         r_circ(ctx, point_pos, 6.0f, 0xFF0000FF);
     }
@@ -246,13 +233,12 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
     
     state.camera.scale = 1.0f;
     state.camera.scale_step = 0.2f;
-    state.camera.scale_max = 7.0f;
-    state.camera.scale_min = 1.0f;
+    state.camera.scale_max = 8.0f;
+    state.camera.scale_min = 0.2f;
 
-    state.step = { 1.0f, 1.0f };
-    state.x_range = state.y_range = { -6.0f, 6.0f };
-    state.pixels_per_unit = { WIDTH/(state.x_range.Y - state.x_range.X), HEIGHT/(state.y_range.Y - state.y_range.X) };
-    state.origin = { WIDTH*.5f, HEIGHT*.5f};
+    state.graph_step = { 1.0f, 1.0f };
+    state.pixels_per_unit = { 80.0f, 60.0f };
+    state.graph_origin = { WIDTH*.5f, HEIGHT*.5f };
 
     b32 should_quit = 0;
     f64 frame_prev = os_ticks_now();
@@ -267,7 +253,6 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
 #endif
         
         f64 frame_start = os_ticks_now();
-        // f64 dt = (frame_start - frame_prev)/1000.0f;
         frame_prev = frame_start;
         
         HMM_Vec2 window_size = {0};
@@ -298,9 +283,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
 
                 case GFX_EVENT_MOUSEMOVE: {
                     if (state.track_mouse) {
-                        f32 dx = (event->mouse.X - state.mouse.X)/state.camera.scale;
-                        f32 dy = (event->mouse.Y - state.mouse.Y)/state.camera.scale;
-                        camera_update_offsets(dx, dy);
+                        state.camera.offset.X += (event->mouse.X - state.mouse.X)/state.camera.scale;
+                        state.camera.offset.Y += (event->mouse.Y - state.mouse.Y)/state.camera.scale;
                     }
                     state.mouse = event->mouse;
                 } break;
@@ -317,21 +301,15 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
                         }
                     }
                     camera_to_screen(&state.camera, state.mouse.X, state.mouse.Y, &after.X, &after.Y);
-
-                    f32 dx = after.X - before.X;
-                    f32 dy = after.Y - before.Y;
-                    camera_update_offsets(dx, dy);
                     
-                    grid_correct_limits(window_size);
-                } break;
-
-                case GFX_EVENT_SIZE_END:
-                case GFX_EVENT_SIZING: {
-                    grid_correct_limits(event->window_size);
+                    state.camera.offset.X += after.X - before.X;
+                    state.camera.offset.Y += after.Y - before.Y;
                 } break;
             }
         }
-
+        
+        graph_fit_limits(window);
+        
         R_List list = {0};
         R_Ctx ctx = r_make_context(frame_arena, &list);
 
@@ -345,7 +323,6 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
             r_graph(window, &ctx, &font_ctx, &font);
         }
 
-#if 0
         // @Note: Rendering and handling ui
         {
             const f32 controls_size = 30.0f;
@@ -355,7 +332,6 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
             };
             r_rect(&font_ctx, controls, 0x333333FF, 0.0f);
         }
-#endif
         
         r_flush_batches(window, &list);
         r_flush_batches(window, &font_list);
@@ -383,8 +359,9 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
         }
     }
     
-    gfx_window_destroy(window);
     font_end(&font);
+    gfx_window_destroy(window);
+    
     r_backend_end();
     
     return 0;
