@@ -91,21 +91,47 @@ internal void camera_to_screen(Camera *camera, f32 x, f32 y, f32 *ox, f32 *oy)
 
 internal void graph_fit_limits(GFX_Window *window)
 {
-    HMM_Vec2 window_size;
+    HMM_Vec2 window_size = {0};
     gfx_window_get_rect(window, &window_size.X, &window_size.Y);
-    
-    HMM_Vec2 origin_point = {0};
-    HMM_Vec2 top_left = {0};
-    HMM_Vec2 bottom_right = { window_size.X, window_size.Y };
-    screen_to_camera(&state.camera, state.graph_origin.X, state.graph_origin.Y, &origin_point.X, &origin_point.Y);
-    camera_to_screen(&state.camera, top_left.X, top_left.Y, &top_left.X, &top_left.Y);
-    camera_to_screen(&state.camera, bottom_right.X, bottom_right.Y, &bottom_right.X, &bottom_right.Y);
-    
-    state.x_range.X = (top_left.X - state.graph_origin.X)/state.pixels_per_unit.X;
-    state.x_range.Y = (bottom_right.X - state.graph_origin.X)/state.pixels_per_unit.X;
 
-    state.y_range.X = (state.graph_origin.Y - bottom_right.Y)/state.pixels_per_unit.Y;
-    state.y_range.Y = (state.graph_origin.Y - top_left.Y)/state.pixels_per_unit.Y;
+    if (window_size.X > 0.0f && window_size.Y > 0.0f) {    
+        HMM_Vec2 origin_point = {0};
+        HMM_Vec2 top_left = {0};
+        HMM_Vec2 bottom_right = { window_size.X, window_size.Y };
+        screen_to_camera(&state.camera, state.graph_origin.X, state.graph_origin.Y, &origin_point.X, &origin_point.Y);
+        camera_to_screen(&state.camera, top_left.X, top_left.Y, &top_left.X, &top_left.Y);
+        camera_to_screen(&state.camera, bottom_right.X, bottom_right.Y, &bottom_right.X, &bottom_right.Y);
+    
+        state.x_range.X = (top_left.X - state.graph_origin.X)/state.pixels_per_unit.X;
+        state.x_range.Y = (bottom_right.X - state.graph_origin.X)/state.pixels_per_unit.X;
+        state.y_range.X = (state.graph_origin.Y - bottom_right.Y)/state.pixels_per_unit.Y;
+        state.y_range.Y = (state.graph_origin.Y - top_left.Y)/state.pixels_per_unit.Y;
+
+        f32 current_x_fit = (state.x_range.Y - state.x_range.X) / state.graph_step.X;
+        f32 current_y_fit = (state.y_range.Y - state.y_range.X) / state.graph_step.Y;
+
+        while (current_x_fit > 12.0f) {
+            state.graph_step.X *= 2.0f;
+            current_x_fit = (state.x_range.Y - state.x_range.X) / state.graph_step.X;
+        }
+        while (current_x_fit < 4.0f) {
+            state.graph_step.X /= 2.0f;
+            current_x_fit = (state.x_range.Y - state.x_range.X) / state.graph_step.X;
+        }
+        while (current_y_fit > 12.0f) {
+            state.graph_step.Y *= 2.0f;
+            current_y_fit = (state.y_range.Y - state.y_range.X) / state.graph_step.Y;
+        }
+        while (current_y_fit < 4.0f) {
+            state.graph_step.Y /= 2.0f;
+            current_y_fit = (state.y_range.Y - state.y_range.X) / state.graph_step.Y;
+        }
+
+        state.x_range.Y /= state.graph_step.X;
+        state.x_range.X /= state.graph_step.X;
+        state.y_range.Y /= state.graph_step.Y;
+        state.y_range.X /= state.graph_step.Y;
+    }
 }
     
 internal void r_graph(GFX_Window *window, R_Ctx *ctx, R_Ctx *font_ctx, Font *font)
@@ -141,8 +167,12 @@ internal void r_graph(GFX_Window *window, R_Ctx *ctx, R_Ctx *font_ctx, Font *fon
             start.X - line_width*.5f, 0.0f,
             start.X + line_width*.5f, window_size.Y
         };
-
-        String8 str = str8("xn");
+        
+        // @ToDo: Find a better way to create a string
+        char buff[32] = {0};
+        snprintf(buff, 32, "%.2f", i * state.graph_step.X);
+        String8 str = str8_from_cstr(buff);
+        
         f32 w = font_text_width(font, str);
         HMM_Vec2 text_pos = { start.X - w*.5f, origin_point.Y + font->font_size + padding };
         // @ToDo: This + 30.0f is hardcoded for now because of the bar at the top.
@@ -169,7 +199,11 @@ internal void r_graph(GFX_Window *window, R_Ctx *ctx, R_Ctx *font_ctx, Font *fon
             window_size.X, start.Y + line_width*.5f
         };
 
-        String8 str = str8("yn");
+        // @ToDo: Find a better way to create a string
+        char buff[32] = {0};
+        snprintf(buff, 32, "%.2f", i * state.graph_step.Y);
+        String8 str = str8_from_cstr(buff);
+        
         f32 w = font_text_width(font, str);
         HMM_Vec2 text_pos = { origin_point.X - w - padding, start.Y - line_width + font->font_size*.5f};
         if (text_pos.X <= padding) {
@@ -197,9 +231,13 @@ internal void r_graph(GFX_Window *window, R_Ctx *ctx, R_Ctx *font_ctx, Font *fon
 
     // @Note: Draw points
     for (u32 i = 0; i < data_size; ++i) {
+        HMM_Vec2 scale = {
+            state.camera.scale*state.pixels_per_unit.X,
+            state.camera.scale*state.pixels_per_unit.Y
+        };        
         HMM_Vec2 point_pos = {
-            origin_point.X + (xs[i]*ppu.X),
-            origin_point.Y - (ys[i]*ppu.Y)
+            origin_point.X + (xs[i]*scale.X),
+            origin_point.Y - (ys[i]*scale.Y)
         };
         r_circ(ctx, point_pos, 6.0f, 0xFF0000FF);
     }
@@ -233,7 +271,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
     
     state.camera.scale = 1.0f;
     state.camera.scale_step = 0.2f;
-    state.camera.scale_max = 8.0f;
+    state.camera.scale_max = 10.0f;
     state.camera.scale_min = 0.2f;
 
     state.graph_step = { 1.0f, 1.0f };
@@ -337,8 +375,6 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
         r_flush_batches(window, &font_list);
 
         r_frame_end(window);
-        // u8 *pixels = r_frame_end_get_backbuffer(window, frame_arena);
-        // stbi_write_jpg("ss.png", (s32) window_size.X, (s32) window_size.Y, 4, pixels, 100);
         
     frame_end:
         {
