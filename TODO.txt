@@ -1,1 +1,3 @@
 [X] Single draw call for font and another for geometry
+[ ] Log scale
+[ ] Input your own step (stops auto-scaling)
