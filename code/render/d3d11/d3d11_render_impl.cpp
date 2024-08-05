@@ -382,7 +382,7 @@ internal void r_window_unequip(GFX_Window *window)
     }
 }
 
-internal void r_frame_begin(GFX_Window *window)
+internal void r_frame_begin(GFX_Window *window, u32 clear_color)
 {
     OPTICK_EVENT();
     
@@ -403,9 +403,14 @@ internal void r_frame_begin(GFX_Window *window)
                 w->swap_chain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void **) &back_buff);
                 d3d11_state.device->CreateRenderTargetView(back_buff, 0, &w->target);
                 back_buff->Release();
+
+                u8 a = (clear_color >> 8*0) & 0xFF;
+                u8 b = (clear_color >> 8*1) & 0xFF;
+                u8 g = (clear_color >> 8*2) & 0xFF;
+                u8 r = (clear_color >> 8*3) & 0xFF;
                 
-                const FLOAT clear_color[] = { 18.0f/255.0f, 18.0f/255.0f, 18.0f/255.0f, 1.0f };
-                d3d11_state.context->ClearRenderTargetView(w->target, clear_color);
+                const FLOAT bg[] = { r/255.0f, g/255.0f, b/255.0f, a/255.0f };
+                d3d11_state.context->ClearRenderTargetView(w->target, bg);
             }
         }
     }

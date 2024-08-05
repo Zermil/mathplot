@@ -13,7 +13,6 @@
 # define NOATOM
 # define NOCLIPBOARD
 # define NOCOLOR
-# define NOCTLMGR
 # define NODRAWTEXT
 # define NOKERNEL
 # define NONLS
@@ -43,5 +42,6 @@
 #include <windows.h>
 #include <windowsx.h>
 #include <shellapi.h>
+#include <commdlg.h>
 
 #endif // WIN32_INC_H

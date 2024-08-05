@@ -22,9 +22,6 @@ typedef enum {
     GFX_EVENT_MBUTTONDOWN,
     GFX_EVENT_MOUSEMOVE,
     GFX_EVENT_MOUSEWHEEL,
-    GFX_EVENT_SIZE_START,
-    GFX_EVENT_SIZE_END,
-    GFX_EVENT_SIZING,
     GFX_EVENT_DROPFILES,
 } GFX_Event_Kind;
 
@@ -53,7 +50,6 @@ typedef struct GFX_Event {
     GFX_Drop_Files drop_files;
     HMM_Vec2 mouse;
     f32 mouse_wheel;
-    HMM_Vec2 window_size;
 } GFX_Event;
 
 typedef struct {
@@ -90,5 +86,6 @@ internal void gfx_mouse_set_cursor(GFX_Window *window, GFX_Cursor_Kind kind);
 internal void gfx_mouse_set_capture(GFX_Window *window, b32 capture);
 
 internal void gfx_error_display(GFX_Window *window, String8 text, String8 caption);
+internal b32 gfx_open_save_dialog(GFX_Window *window, String8 *out);
 
 #endif // GFX_H

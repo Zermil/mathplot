@@ -115,7 +115,7 @@ internal f32 font_text_width(Font *font, String8 text)
     return(font_text_width_ex(font, text, 1.0f));
 }
 
-internal void font_r_text_ex(R_Ctx *ctx, Font *font, HMM_Vec2 pos, String8 text, f32 scale)
+internal void font_r_text_ex(R_Ctx *ctx, Font *font, HMM_Vec2 pos, String8 text, u32 col, f32 scale)
 {
     OPTICK_EVENT();
 
@@ -137,7 +137,7 @@ internal void font_r_text_ex(R_Ctx *ctx, Font *font, HMM_Vec2 pos, String8 text,
                 glyph_pos.X + glyph.size.X*scale, glyph_pos.Y + glyph.size.Y*scale
             };
 
-            r_rect_tex_ex(ctx, glyph_rect, 0xFFFFFFFF, 0.0f, 0.0f, glyph.uv, font->texture);
+            r_rect_tex_ex(ctx, glyph_rect, col, 0.0f, 0.0f, glyph.uv, font->texture);
             pos.X += glyph.advance*scale;
         }
     } else {
@@ -145,9 +145,9 @@ internal void font_r_text_ex(R_Ctx *ctx, Font *font, HMM_Vec2 pos, String8 text,
     }
 }
 
-internal void font_r_text(R_Ctx *ctx, Font *font, HMM_Vec2 pos, String8 text)
+internal void font_r_text(R_Ctx *ctx, Font *font, HMM_Vec2 pos, u32 col, String8 text)
 {
-    font_r_text_ex(ctx, font, pos, text, 1.0f);
+    font_r_text_ex(ctx, font, pos, text, col, 1.0f);
 }
 
 internal void font_end(Font *font)
@@ -156,5 +156,5 @@ internal void font_end(Font *font)
         r_texture_destroy(font->texture);
     }
 
-    *font = {0};
+    MemoryZero(font, sizeof(Font));
 }

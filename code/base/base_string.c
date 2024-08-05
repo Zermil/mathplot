@@ -40,3 +40,12 @@ internal String8 str8_push_copy(Arena *arena, String8 str)
     result.data[result.size] = 0;
     return(result);
 }
+
+internal String8 str8_alloc(Arena *arena, usize size)
+{
+    String8 result = {0};
+    result.data = arena_push_array(arena, u8, size + 1);
+    result.size = size;
+    result.data[size] = 0;
+    return(result);
+}

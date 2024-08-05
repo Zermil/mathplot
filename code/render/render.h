@@ -29,7 +29,7 @@ internal b32 r_backend_init(void);
 internal void r_backend_end(void);
 internal b32 r_window_equip(GFX_Window *window);
 internal void r_window_unequip(GFX_Window *window);
-internal void r_frame_begin(GFX_Window *window);
+internal void r_frame_begin(GFX_Window *window, u32 clear_color);
 internal void r_frame_end(GFX_Window *window);
 internal b32 r_submit_quads(GFX_Window *window, R_Quad_Node *draw_data, usize total_quad_count, R_Texture2D *texture);
 

@@ -44,28 +44,16 @@ internal LRESULT CALLBACK gfx_win32_window_proc(HWND handle, UINT msg, WPARAM wP
                 win32_window->render(gfx_window, win32_window->render_data);
                 EndPaint(handle, &ps);
             }
-
-            // @Note: This is called at window creation
-            if (win32_arena) {
-                GFX_Event *event = gfx_events_push(GFX_EVENT_SIZING, window);
-                gfx_window_get_rect(window, &event->window_size.X, &event->window_size.Y);
-            }
         } break;
         
         case WM_ENTERSIZEMOVE: {
             Win32_Window *w = gfx_win32_window_from_handle(handle);
             w->resizing = 1;
-
-            GFX_Event *event = gfx_events_push(GFX_EVENT_SIZE_START, window);
-            gfx_window_get_rect(window, &event->window_size.X, &event->window_size.Y);
         } break;
         
         case WM_EXITSIZEMOVE: {
             Win32_Window *w = gfx_win32_window_from_handle(handle);
             w->resizing = 0;
-
-            GFX_Event *event = gfx_events_push(GFX_EVENT_SIZE_END, window);
-            gfx_window_get_rect(window, &event->window_size.X, &event->window_size.Y);
         } break;
         
         case WM_SETCURSOR: {
@@ -534,26 +522,28 @@ internal void gfx_mouse_set_cursor(GFX_Window *window, GFX_Cursor_Kind kind)
     if (!gfx_is_init()) {
         er_push(str8("GFX layer not initialized"));
     } else {
-        Win32_Window *w = win32_window_from_opaque(window);
-        HCURSOR cursor = w->cursor;
+        if (win32_window_is_valid(window)) {
+            Win32_Window *w = win32_window_from_opaque(window);
+            HCURSOR cursor = w->cursor;
         
-        switch (kind) {
-            case GFX_CURSOR_ARROW: {
-                cursor = LoadCursor(0, IDC_ARROW);
-            } break;
+            switch (kind) {
+                case GFX_CURSOR_ARROW: {
+                    cursor = LoadCursor(0, IDC_ARROW);
+                } break;
             
-            case GFX_CURSOR_HAND: {
-                cursor = LoadCursor(0, IDC_HAND);
-            } break;
+                case GFX_CURSOR_HAND: {
+                    cursor = LoadCursor(0, IDC_HAND);
+                } break;
             
-            case GFX_CURSOR_HSIZE: {
-                cursor = LoadCursor(0, IDC_SIZEWE);
-            } break;
-        }
+                case GFX_CURSOR_HSIZE: {
+                    cursor = LoadCursor(0, IDC_SIZEWE);
+                } break;
+            }
         
-        if (w->cursor != cursor) {
-            w->cursor = cursor;
-            SetCursor(w->cursor);
+            if (w->cursor != cursor) {
+                w->cursor = cursor;
+                SetCursor(w->cursor);
+            }
         }
     }
 }
@@ -563,21 +553,55 @@ internal void gfx_mouse_set_capture(GFX_Window *window, b32 capture)
     if (!gfx_is_init()) {
         er_push(str8("GFX layer not initialized"));
     } else {
-        Win32_Window *w = win32_window_from_opaque(window);
-        if (capture) {
-            SetCapture(w->handle);
-        } else {
-            ReleaseCapture();
+        if (win32_window_is_valid(window)) {
+            Win32_Window *w = win32_window_from_opaque(window);
+            
+            if (capture) {
+                SetCapture(w->handle);
+            } else {
+                ReleaseCapture();
+            }
         }
     }
 }
 
 internal void gfx_error_display(GFX_Window *window, String8 text, String8 caption)
 {
-    Win32_Window *w = win32_window_from_opaque(window);
-    MessageBox(w->handle, (LPCSTR) text.data, (LPCSTR) caption.data, MB_OK | MB_ICONEXCLAMATION);
+    if (win32_window_is_valid(window)) {
+        Win32_Window *w = win32_window_from_opaque(window);
+        MessageBox(w->handle, (LPCSTR) text.data, (LPCSTR) caption.data, MB_OK | MB_ICONEXCLAMATION);
+    }
 }
 
+internal b32 gfx_open_save_dialog(GFX_Window *window, String8 *out)
+{
+    b32 result = 0;
+    if (!gfx_is_init()) {
+        er_push(str8("GFX layer not initialized"));
+    } else {
+        if (win32_window_is_valid(window)) {
+            Win32_Window *w = win32_window_from_opaque(window);
+            
+            OPENFILENAME ofn = {0};
+            MemoryZero(&ofn, sizeof(OPENFILENAME));
+            MemoryZero(out->data, out->size);
+            
+            ofn.lStructSize = sizeof(OPENFILENAME);
+            ofn.hwndOwner = w->handle;
+            ofn.lpstrFilter = "Image file (*.jpg;*jpeg;*jpe;*jfif)\0*.jpg;*.jpeg;*.jpe;*.jfif\0\0";
+            ofn.lpstrTitle = "Select a file";
+            ofn.lpstrFile = (LPSTR) out->data;
+            ofn.nMaxFile = (DWORD) out->size;
+            ofn.lpstrDefExt = "jpg";
+            ofn.Flags = OFN_EXPLORER | OFN_OVERWRITEPROMPT | OFN_HIDEREADONLY;
+            
+            result = GetSaveFileName(&ofn);
+        }
+    }
+
+    return(result);
+}
+    
 //
 // @Note: Windows specific
 //
