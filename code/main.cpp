@@ -8,7 +8,6 @@
 #define HEIGHT 720
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include <stdio.h>
 #include <stb_image_write.h>
 
 #include <HandmadeMath.h>
@@ -54,6 +53,8 @@ typedef struct State State;
 struct State
 {
     Font font;
+    b32 light_mode;
+    Graph_Data graph_data;
     
     HMM_Vec2 x_range;
     HMM_Vec2 y_range;
@@ -61,8 +62,6 @@ struct State
     HMM_Vec2 pixels_per_unit;
     HMM_Vec2 graph_origin;
 
-    Graph_Data graph_data;
-    
     b32 track_mouse;
     HMM_Vec2 mouse;
 
@@ -128,10 +127,14 @@ internal void graph_fit_limits(GFX_Window *window)
     }
 }
     
-internal void r_graph(GFX_Window *window, R_Ctx *ctx, R_Ctx *font_ctx)
+internal void r_graph(GFX_Window *window, R_Ctx *ctx, R_Ctx *font_ctx, b32 light_mode)
 {
     OPTICK_EVENT();
 
+    const u32 text_col[] = { 0xFFFFFFFF, 0x121212FF };
+    const u32 grid_col[] = { 0x262626FF, 0xBFBFBFFF };
+    const u32 line_col[] = { 0x4A4A4AFF, 0x0F0F0FFF };
+    
     HMM_Vec2 window_size;
     gfx_window_get_rect(window, &window_size.X, &window_size.Y);
 
@@ -173,8 +176,8 @@ internal void r_graph(GFX_Window *window, R_Ctx *ctx, R_Ctx *font_ctx)
             text_pos.Y = window_size.Y - padding;
         }
         
-        r_rect(ctx, rect, 0x262626FF, 0.0f);
-        font_r_text(font_ctx, &state.font, text_pos, 0xFFFFFFFF, str);
+        r_rect(ctx, rect, grid_col[light_mode], 0.0f);
+        font_r_text(font_ctx, &state.font, text_pos, text_col[light_mode], str);
     }
 
     for (s32 i = (s32) state.y_range.X; i <= (s32) state.y_range.Y; ++i) {
@@ -203,8 +206,8 @@ internal void r_graph(GFX_Window *window, R_Ctx *ctx, R_Ctx *font_ctx)
             text_pos.X = window_size.X - w - padding;
         }
         
-        r_rect(ctx, rect, 0x262626FF, 0.0f);
-        font_r_text(font_ctx, &state.font, text_pos, 0xFFFFFFFF, str);
+        r_rect(ctx, rect, grid_col[light_mode], 0.0f);
+        font_r_text(font_ctx, &state.font, text_pos, text_col[light_mode], str);
     }
     
     RectF32 axis_x = {
@@ -217,8 +220,8 @@ internal void r_graph(GFX_Window *window, R_Ctx *ctx, R_Ctx *font_ctx)
         origin_point.X + line_width, window_size.Y
     };
     
-    r_rect(ctx, axis_y, 0x4A4A4AFF, 0.0f);
-    r_rect(ctx, axis_x, 0x4A4A4AFF, 0.0f);
+    r_rect(ctx, axis_y, line_col[light_mode], 0.0f);
+    r_rect(ctx, axis_x, line_col[light_mode], 0.0f);
 
     const HMM_Vec2 scale = {
         state.camera.scale*state.pixels_per_unit.X,
@@ -235,6 +238,8 @@ internal void r_graph(GFX_Window *window, R_Ctx *ctx, R_Ctx *font_ctx)
     }
 }
 
+// @Hack: Rendering to texture would require equal amount of code and doesn't feel
+// like it would solve the problem any better?
 internal void graph_save_to_file(GFX_Window *window, Arena *arena)
 {
     String8 out = str8_alloc(arena, MAX_PATH);
@@ -243,7 +248,7 @@ internal void graph_save_to_file(GFX_Window *window, Arena *arena)
     HMM_Vec2 window_size = {0};
     gfx_window_get_rect(window, &window_size.X, &window_size.Y);
     
-    GFX_Window *canvas = gfx_window_create(str8("A window"), (s32) window_size.X, (s32) window_size.Y);
+    GFX_Window *canvas = gfx_window_create(str8("Canvas"), (s32) window_size.X, (s32) window_size.Y);
     gfx_window_set_visible(canvas, 0);
     gfx_window_set_destroy_func(canvas, r_window_unequip);
 
@@ -257,9 +262,9 @@ internal void graph_save_to_file(GFX_Window *window, Arena *arena)
     R_List font_list = {0};
     R_Ctx font_ctx = r_make_context(arena, &font_list);
         
-    r_frame_begin(canvas, 0x121212FF);
+    r_frame_begin(canvas, 0xFFFFFFFF);
     
-    r_graph(canvas, &ctx, &font_ctx);
+    r_graph(canvas, &ctx, &font_ctx, 1);
 
     r_flush_batches(canvas, &list);
     r_flush_batches(canvas, &font_list);
@@ -302,7 +307,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
     state.camera.scale_min = 0.2f;
 
     state.graph_step = { 1.0f, 1.0f };
-    state.pixels_per_unit = { 60.0f, 60.0f };
+    state.pixels_per_unit = { 80.0f, 80.0f };
     state.graph_origin = { WIDTH*.5f, HEIGHT*.5f };
 
     f32 xs[5] = { 0.0f, 1.0f, 2.5f, 5.0f, 10.0f };
@@ -343,7 +348,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
 
             switch (event->kind) {
                 case GFX_EVENT_KEYDOWN: {
-                    if (event->character == 'R') {
+                    if (event->ctrl_held && event->character == 'S') {
                         graph_save_to_file(window, frame_arena);
                     }
                 } break;
@@ -400,7 +405,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
 
         // @Note: Rendering graph
         {            
-            r_graph(window, &ctx, &font_ctx);
+            r_graph(window, &ctx, &font_ctx, state.light_mode);
         }
 
         // @Note: Rendering and handling ui

@@ -66,6 +66,7 @@ internal LRESULT CALLBACK gfx_win32_window_proc(HWND handle, UINT msg, WPARAM wP
         case WM_KEYDOWN: {
             // @ToDo: Actaully translate the keycodes comming in to something useful
             GFX_Event *event = gfx_events_push(GFX_EVENT_KEYDOWN, window);
+            event->ctrl_held = GetAsyncKeyState(VK_CONTROL) & ( 1 << 16);
             event->character = wParam;
         } break;
         

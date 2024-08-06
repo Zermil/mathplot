@@ -68,7 +68,7 @@ internal Font font_init(Arena *arena, String8 font_name, u32 font_size, u32 dpi)
                         u32 x = (u32) (glyph.origin.X + col);
                         u32 y = (u32) (glyph.origin.Y + row);
                         usize index = (usize) (y*result.texture_size.X + x);
-                        pixels[index] = (pixel << 3*8) | (pixel << 2*8) | (pixel << 1*8) | 0xFF;
+                        pixels[index] = 0xFFFFFF00 | pixel;
                     }
                 }
             }

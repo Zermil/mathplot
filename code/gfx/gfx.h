@@ -47,6 +47,7 @@ typedef struct GFX_Event {
     GFX_Event_Kind kind;
     
     u64 character;
+    b32 ctrl_held;
     GFX_Drop_Files drop_files;
     HMM_Vec2 mouse;
     f32 mouse_wheel;
