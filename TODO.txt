@@ -1,4 +1,7 @@
 [X] Single draw call for font and another for geometry
 [ ] Log scale
 [ ] Input your own step (stops auto-scaling)
-[ ] Dashed line connecting points
+[ ] Dashed line connecting points (as an option)
+
+[ ] Custom JPG saver functionality (?)
+[ ] Label axis, what's on X and Y (unit)
