@@ -35,14 +35,15 @@ internal LRESULT CALLBACK gfx_win32_window_proc(HWND handle, UINT msg, WPARAM wP
         } break;
         
         case WM_SIZE: {
-            GFX_Window *gfx_window = gfx_win32_opaque_from_handle(handle);
+            // @Note: WM_SIZE also happens at window creation, which kinda makes sense, kinda doesn't
+            if (win32_arena) {
+                GFX_Event *event = gfx_events_push(GFX_EVENT_SIZE, window);
+                gfx_window_get_rect(window, &event->window_size.X, &event->window_size.Y);
+            }
+
             Win32_Window *win32_window = win32_window_from_opaque(gfx_window);
-            
             if (win32_window->render) {
-                PAINTSTRUCT ps = {0};
-                BeginPaint(handle, &ps);
                 win32_window->render(gfx_window, win32_window->render_data);
-                EndPaint(handle, &ps);
             }
         } break;
         
@@ -66,7 +67,7 @@ internal LRESULT CALLBACK gfx_win32_window_proc(HWND handle, UINT msg, WPARAM wP
         case WM_KEYDOWN: {
             // @ToDo: Actaully translate the keycodes comming in to something useful
             GFX_Event *event = gfx_events_push(GFX_EVENT_KEYDOWN, window);
-            event->ctrl_held = GetAsyncKeyState(VK_CONTROL) & ( 1 << 16);
+            event->ctrl_held = GetAsyncKeyState(VK_CONTROL) & (1 << 16);
             event->character = wParam;
         } break;
         
@@ -372,14 +373,17 @@ internal b32 gfx_window_get_resizable(GFX_Window *window)
 
 internal GFX_Event *gfx_events_push(GFX_Event_Kind kind, GFX_Window *window)
 {
-    GFX_Event *event = arena_push_array(win32_arena, GFX_Event, 1);
-    
-    if (event != 0) {
-        event->kind = kind;
-        event->window = window;
+    GFX_Event *event = 0;
+    if (win32_arena) {
+        event = arena_push_array(win32_arena, GFX_Event, 1);
+
+        if (event != 0) {
+            event->kind = kind;
+            event->window = window;
         
-        SLLQueuePush(win32_event_list.first, win32_event_list.last, event);
-        win32_event_list.count += 1;
+            SLLQueuePush(win32_event_list.first, win32_event_list.last, event);
+            win32_event_list.count += 1;
+        }
     }
     
     return(event);

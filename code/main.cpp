@@ -54,6 +54,8 @@ struct State
 {
     Font font;
     b32 light_mode;
+    b32 auto_scale;
+    b32 show_slider_control;
     Graph_Data graph_data;
     
     HMM_Vec2 x_range;
@@ -86,7 +88,7 @@ internal void graph_fit_limits(GFX_Window *window)
 {
     HMM_Vec2 window_size = {0};
     gfx_window_get_rect(window, &window_size.X, &window_size.Y);
-
+    
     if (window_size.X > 0.0f && window_size.Y > 0.0f) {    
         HMM_Vec2 origin_point = {0};
         HMM_Vec2 top_left = {0};
@@ -100,34 +102,36 @@ internal void graph_fit_limits(GFX_Window *window)
         state.y_range.X = (state.graph_origin.Y - bottom_right.Y)/state.pixels_per_unit.Y;
         state.y_range.Y = (state.graph_origin.Y - top_left.Y)/state.pixels_per_unit.Y;
 
-        f32 current_x_fit = (state.x_range.Y - state.x_range.X) / state.graph_step.X;
-        f32 current_y_fit = (state.y_range.Y - state.y_range.X) / state.graph_step.Y;
-
-        while (current_x_fit > 12.0f) {
-            state.graph_step.X *= 2.0f;
-            current_x_fit = (state.x_range.Y - state.x_range.X) / state.graph_step.X;
+        if (state.auto_scale) {
+            f32 current_x_fit = (state.x_range.Y - state.x_range.X) / state.graph_step.X;
+            f32 current_y_fit = (state.y_range.Y - state.y_range.X) / state.graph_step.Y;
+            
+            while (current_x_fit > 12.0f) {
+                state.graph_step.X *= 2.0f;
+                current_x_fit = (state.x_range.Y - state.x_range.X) / state.graph_step.X;
+            }
+            while (current_x_fit < 4.0f) {
+                state.graph_step.X /= 2.0f;
+                current_x_fit = (state.x_range.Y - state.x_range.X) / state.graph_step.X;
+            }
+            while (current_y_fit > 12.0f) {
+                state.graph_step.Y *= 2.0f;
+                current_y_fit = (state.y_range.Y - state.y_range.X) / state.graph_step.Y;
+            }
+            while (current_y_fit < 4.0f) {
+                state.graph_step.Y /= 2.0f;
+                current_y_fit = (state.y_range.Y - state.y_range.X) / state.graph_step.Y;
+            }
+            
+            state.x_range.Y /= state.graph_step.X;
+            state.x_range.X /= state.graph_step.X;
+            state.y_range.Y /= state.graph_step.Y;
+            state.y_range.X /= state.graph_step.Y;
         }
-        while (current_x_fit < 4.0f) {
-            state.graph_step.X /= 2.0f;
-            current_x_fit = (state.x_range.Y - state.x_range.X) / state.graph_step.X;
-        }
-        while (current_y_fit > 12.0f) {
-            state.graph_step.Y *= 2.0f;
-            current_y_fit = (state.y_range.Y - state.y_range.X) / state.graph_step.Y;
-        }
-        while (current_y_fit < 4.0f) {
-            state.graph_step.Y /= 2.0f;
-            current_y_fit = (state.y_range.Y - state.y_range.X) / state.graph_step.Y;
-        }
-
-        state.x_range.Y /= state.graph_step.X;
-        state.x_range.X /= state.graph_step.X;
-        state.y_range.Y /= state.graph_step.Y;
-        state.y_range.X /= state.graph_step.Y;
     }
 }
     
-internal void r_graph(GFX_Window *window, R_Ctx *ctx, R_Ctx *font_ctx, b32 light_mode)
+internal void r_graph(GFX_Window *window, R_Ctx *ctx, R_Ctx *ui_ctx, b32 light_mode)
 {
     OPTICK_EVENT();
 
@@ -168,8 +172,9 @@ internal void r_graph(GFX_Window *window, R_Ctx *ctx, R_Ctx *font_ctx, b32 light
         
         f32 w = font_text_width(&state.font, str);
         HMM_Vec2 text_pos = { start.X - w*.5f, origin_point.Y + state.font.font_size + padding };
-        // @ToDo: This + font->font_size*2.0f is hardcoded for now because of the bar at the top.
-        f32 offset = state.font.font_size*2.0f;
+        
+        // @ToDo: font->font_size*2.0f is hardcoded for now because of the bar at the top.
+        f32 offset = light_mode ? 0.0f : state.font.font_size*2.0f;
         if (text_pos.Y <= 2.0f*padding + offset) { 
             text_pos.Y = 2.0f*padding + offset;
         } else if (text_pos.Y + padding >= window_size.Y) {
@@ -177,7 +182,7 @@ internal void r_graph(GFX_Window *window, R_Ctx *ctx, R_Ctx *font_ctx, b32 light
         }
         
         r_rect(ctx, rect, grid_col[light_mode], 0.0f);
-        font_r_text(font_ctx, &state.font, text_pos, text_col[light_mode], str);
+        font_r_text(ui_ctx, &state.font, text_pos, text_col[light_mode], str);
     }
 
     for (s32 i = (s32) state.y_range.X; i <= (s32) state.y_range.Y; ++i) {
@@ -200,6 +205,7 @@ internal void r_graph(GFX_Window *window, R_Ctx *ctx, R_Ctx *font_ctx, b32 light
         
         f32 w = font_text_width(&state.font, str);
         HMM_Vec2 text_pos = { origin_point.X - w - padding, start.Y - line_width + state.font.font_size*.5f};
+        
         if (text_pos.X <= padding) {
             text_pos.X = padding;
         } else if (text_pos.X + w + padding >= window_size.X) {
@@ -207,7 +213,7 @@ internal void r_graph(GFX_Window *window, R_Ctx *ctx, R_Ctx *font_ctx, b32 light
         }
         
         r_rect(ctx, rect, grid_col[light_mode], 0.0f);
-        font_r_text(font_ctx, &state.font, text_pos, text_col[light_mode], str);
+        font_r_text(ui_ctx, &state.font, text_pos, text_col[light_mode], str);
     }
     
     RectF32 axis_x = {
@@ -234,13 +240,13 @@ internal void r_graph(GFX_Window *window, R_Ctx *ctx, R_Ctx *font_ctx, b32 light
             origin_point.X + (state.graph_data.xs[i]*scale.X),
             origin_point.Y - (state.graph_data.ys[i]*scale.Y)
         };
-        r_circ(ctx, point_pos, 6.0f, 0xFF0000FF);
+        r_circ(ctx, point_pos, 8.0f, 0xFF0000FF);
     }
 }
 
 // @Hack: Rendering to texture would require equal amount of code and doesn't feel
 // like it would solve the problem any better?
-internal void graph_save_to_file(GFX_Window *window, Arena *arena)
+internal void graph_save_to_file(Arena *arena, GFX_Window *window)
 {
     String8 out = str8_alloc(arena, MAX_PATH);
     gfx_open_save_dialog(window, &out);
@@ -260,11 +266,11 @@ internal void graph_save_to_file(GFX_Window *window, Arena *arena)
     R_Ctx ctx = r_make_context(arena, &list);
         
     R_List font_list = {0};
-    R_Ctx font_ctx = r_make_context(arena, &font_list);
+    R_Ctx ui_ctx = r_make_context(arena, &font_list);
         
     r_frame_begin(canvas, 0xFFFFFFFF);
     
-    r_graph(canvas, &ctx, &font_ctx, 1);
+    r_graph(canvas, &ctx, &ui_ctx, 1);
 
     r_flush_batches(canvas, &list);
     r_flush_batches(canvas, &font_list);
@@ -300,11 +306,15 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
     r_window_equip(window);
     
     state.font = font_init(arena, str8("./Inconsolata-Regular.ttf"), 16, 96);
+    state.light_mode = 0;
+    state.auto_scale = 1;
+    state.show_slider_control = 0;
     
     state.camera.scale = 1.0f;
     state.camera.scale_step = 0.2f;
     state.camera.scale_max = 10.0f;
     state.camera.scale_min = 0.2f;
+    state.camera.offset = { 0.0f, 0.0f };
 
     state.graph_step = { 1.0f, 1.0f };
     state.pixels_per_unit = { 80.0f, 80.0f };
@@ -331,9 +341,9 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
 #endif
         
         f64 frame_start = os_ticks_now();
-        // f32 dt = (f32) (frame_start - frame_prev)/1000.0f;
+        // f64 dt = (frame_start - frame_prev) / 1000.0;
         frame_prev = frame_start;
-
+        
         HMM_Vec2 window_size = {0};
         gfx_window_get_rect(window, &window_size.X, &window_size.Y);
                
@@ -346,10 +356,23 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
                 goto frame_end;
             }
 
+            if (event->kind == GFX_EVENT_SIZE) {
+                state.graph_origin = { event->window_size.X*.5f, event->window_size.Y*.5f };
+            }
+            
             switch (event->kind) {
                 case GFX_EVENT_KEYDOWN: {
-                    if (event->ctrl_held && event->character == 'S') {
-                        graph_save_to_file(window, frame_arena);
+                    if (event->ctrl_held) {
+                        if (event->character == 'S') {
+                            graph_save_to_file(frame_arena, window);
+                        }
+                    } else {
+                        if (event->character == VK_TAB) {
+                            state.show_slider_control = !state.show_slider_control;
+                        } else if (event->character == '0') {
+                            state.camera.scale = 1.0f;
+                            state.camera.offset = { 0.0f, 0.0f };
+                        }
                     }
                 } break;
                 
@@ -399,13 +422,13 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
         R_Ctx ctx = r_make_context(frame_arena, &list);
         
         R_List font_list = {0};
-        R_Ctx font_ctx = r_make_context(frame_arena, &font_list);
+        R_Ctx ui_ctx = r_make_context(frame_arena, &font_list);
         
         r_frame_begin(window, 0x121212FF);
 
         // @Note: Rendering graph
         {            
-            r_graph(window, &ctx, &font_ctx, state.light_mode);
+            r_graph(window, &ctx, &ui_ctx, state.light_mode);
         }
 
         // @Note: Rendering and handling ui
@@ -417,11 +440,19 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
                 0.0f, 0.0f,
                 window_size.X, controls_size
             };
-            r_rect(&font_ctx, controls, 0x333333FF, 0.0f);
+            r_rect(&ui_ctx, controls, 0x242424FF, 0.0f);
 
             String8 save = str8("Save");
             HMM_Vec2 text_pos = { padding, state.font.font_size*1.5f };
-            font_r_text(&font_ctx, &state.font, text_pos, 0xFFFFFFFF, save);
+            font_r_text(&ui_ctx, &state.font, text_pos, 0xFFFFFFFF, save);
+
+            if (state.show_slider_control) {
+                RectF32 sliders = {
+                    padding, controls_size + padding,
+                    padding + 300.0f, controls_size + 200.0f
+                };
+                r_rect(&ui_ctx, sliders, 0x242424C8, 0.0f);
+            }
         }
         
         r_flush_batches(window, &list);

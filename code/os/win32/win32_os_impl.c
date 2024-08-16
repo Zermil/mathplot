@@ -123,7 +123,7 @@ internal String8 os_file_read(Arena *arena, String8 file)
         u8 *end = buffer + file_size;
         b32 success = 1;
         while (start < end) {
-            u64 total_to_read = (usize) (end - start);
+            u64 total_to_read = (u64) (end - start);
             DWORD left_to_read = (DWORD) total_to_read;
             if (total_to_read > 0xFFFFFFFF) {
                 left_to_read = 0xFFFFFFFF;

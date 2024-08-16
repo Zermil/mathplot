@@ -22,6 +22,7 @@ typedef enum {
     GFX_EVENT_MBUTTONDOWN,
     GFX_EVENT_MOUSEMOVE,
     GFX_EVENT_MOUSEWHEEL,
+    GFX_EVENT_SIZE,
     GFX_EVENT_DROPFILES,
 } GFX_Event_Kind;
 
@@ -46,11 +47,15 @@ typedef struct GFX_Event {
     
     GFX_Event_Kind kind;
     
-    u64 character;
-    b32 ctrl_held;
     GFX_Drop_Files drop_files;
+    
+    b32 ctrl_held;
+    u64 character;
+    
     HMM_Vec2 mouse;
     f32 mouse_wheel;
+
+    HMM_Vec2 window_size;
 } GFX_Event;
 
 typedef struct {
