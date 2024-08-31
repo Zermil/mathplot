@@ -27,6 +27,8 @@
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define SIGN(a) ((a) < 0 ? -1 : 1)
+#define BETWEEN(a, top, bot) ((bot) <= (a) && (a) <= (top))
 
 // @Note: These are used when allocating, so we don't access memory we have not commited yet
 #ifndef NDEBUG

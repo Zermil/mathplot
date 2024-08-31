@@ -240,7 +240,7 @@ internal void r_graph(GFX_Window *window, R_Ctx *ctx, R_Ctx *ui_ctx, b32 light_m
             origin_point.X + (state.graph_data.xs[i]*scale.X),
             origin_point.Y - (state.graph_data.ys[i]*scale.Y)
         };
-        r_circ(ctx, point_pos, 8.0f, 0xFF0000FF);
+        r_circ(ctx, point_pos, 0xFF0000FF, 8.0f);
     }
 }
 
@@ -257,8 +257,6 @@ internal void graph_save_to_file(Arena *arena, GFX_Window *window)
     GFX_Window *canvas = gfx_window_create(str8("Canvas"), (s32) window_size.X, (s32) window_size.Y);
     gfx_window_set_visible(canvas, 0);
     gfx_window_set_destroy_func(canvas, r_window_unequip);
-
-    graph_fit_limits(canvas);
     
     r_window_equip(canvas);
     
@@ -372,6 +370,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
                         } else if (event->character == '0') {
                             state.camera.scale = 1.0f;
                             state.camera.offset = { 0.0f, 0.0f };
+                            state.graph_step = { 1.0f, 1.0f };
                         }
                     }
                 } break;

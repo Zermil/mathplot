@@ -41,9 +41,9 @@ internal LRESULT CALLBACK gfx_win32_window_proc(HWND handle, UINT msg, WPARAM wP
                 gfx_window_get_rect(window, &event->window_size.X, &event->window_size.Y);
             }
 
-            Win32_Window *win32_window = win32_window_from_opaque(gfx_window);
+            Win32_Window *win32_window = win32_window_from_opaque(window);
             if (win32_window->render) {
-                win32_window->render(gfx_window, win32_window->render_data);
+                win32_window->render(window, win32_window->render_data);
             }
         } break;
         

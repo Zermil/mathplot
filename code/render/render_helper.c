@@ -81,7 +81,7 @@ internal void r_rect(R_Ctx *ctx, RectF32 pos, u32 col, f32 radius)
     r_rect_ex(ctx, pos, col, radius, 0.0f);
 }
 
-internal void r_circ(R_Ctx *ctx, HMM_Vec2 pos, f32 radius, u32 col)
+internal void r_circ(R_Ctx *ctx, HMM_Vec2 pos, u32 col, f32 radius)
 {
     f32 nx = pos.X - radius;
     f32 ny = pos.Y - radius;
