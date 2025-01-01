@@ -309,9 +309,9 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, 
     state.show_slider_control = 0;
     
     state.camera.scale = 1.0f;
-    state.camera.scale_step = 0.2f;
-    state.camera.scale_max = 10.0f;
-    state.camera.scale_min = 0.2f;
+    state.camera.scale_step = 0.1f;
+    state.camera.scale_max = 100.0f;
+    state.camera.scale_min = 0.001f;
     state.camera.offset = { 0.0f, 0.0f };
 
     state.graph_step = { 1.0f, 1.0f };

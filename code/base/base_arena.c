@@ -138,8 +138,6 @@ internal void arena_pop_to(Arena *arena, usize pos)
     
     {
         // @Note: This is very serious, if this assert hits, this means that our 'rel_chunk_pos' resides in uncommited/poisoned memory.
-        // we _could_ also go a different route and do some if(s) and checks or similar approaches to
-        // ensure we pop _more_ stuff, but, as a consequence, everything's correct when it comes to memory access.
         Assert(rel_chunk_pos <= current->chunk_pos);
     }
     

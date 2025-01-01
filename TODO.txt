@@ -1,10 +1,10 @@
-[X] Single draw call for font and another for geometry
+[ ] Zooming in more and more over time causes 'less' zoom? Step should probably scale with something to ensure that it is constant
+[ ] Optimize number of draw calls
+[ ] Custom JPG saver functionality (?)
+
 [ ] Log scale
 [ ] Input your own step (stops auto-scaling)
 [ ] Dashed line connecting points (as an option)
-
-[ ] Custom JPG saver functionality (?)
 [ ] Label axis, what's on X and Y (unit)
-
 [ ] Hovering shows rough coordinates in info window
 [ ] Hover over point shows its _exact_ coordinates

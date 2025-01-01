@@ -6,7 +6,7 @@ internal usize str8_cstr_size(const char *cstr)
     return(result);
 }
 
-internal String8 str8_make(u8  *data, usize size)
+internal String8 str8_make(u8 *data, usize size)
 {
     String8 result = {0};
     result.data = data;
